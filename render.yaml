@@ -4,7 +4,7 @@ services:
     runtime: node
     region: oregon
     plan: free
-    buildCommand: npm ci && npm run build -w packages/shared && npm run build -w apps/backend
+    buildCommand: npm ci --include=dev && npm run build -w packages/shared && npm run build -w apps/backend
     startCommand: node apps/backend/dist/server.js
     envVars:
       - key: NODE_VERSION
