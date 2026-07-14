@@ -12,14 +12,25 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+// ── CORS origins ──
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000")
+  .split(",")
+  .map((o) => o.trim().replace(/\/+$/, ""));
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: allowedOrigins,
+    credentials: true,
   },
 });
 
 // ── Middleware ──
-app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:3000" }));
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  }),
+);
 app.use(helmet());
 app.use(express.json());
 

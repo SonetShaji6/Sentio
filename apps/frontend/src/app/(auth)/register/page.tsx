@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { setTokens } from "@/lib/auth";
 
 interface FieldError {
   field: string;
@@ -84,10 +85,9 @@ export default function RegisterPage() {
         return;
       }
 
-      // Store tokens and redirect
-      localStorage.setItem("accessToken", data.accessToken);
-      localStorage.setItem("refreshToken", data.refreshToken);
-      window.location.href = "/";
+      // Store tokens and redirect to dashboard
+      setTokens(data.accessToken, data.refreshToken);
+      window.location.href = "/dashboard";
     } catch {
       setGlobalError("Network error. Please try again.");
     } finally {

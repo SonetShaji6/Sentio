@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User";
 import { validate } from "../middleware/validate";
+import { requireAuth } from "../middleware/auth";
 
 const router = Router();
 
@@ -122,5 +123,28 @@ router.post(
     }
   },
 );
+
+// ── GET /api/auth/me ──
+router.get("/me", requireAuth, async (req: any, res: any) => {
+  try {
+    const user = await User.findById(req.user.sub).select("-passwordHash");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt.toISOString(),
+      },
+    });
+  } catch (err) {
+    console.error("Me error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
 
 export default router;
