@@ -5,6 +5,14 @@ import jwt from "jsonwebtoken";
 import User from "../models/User";
 import { validate } from "../middleware/validate";
 import { requireAuth } from "../middleware/auth";
+import multer from "multer";
+import { uploadAvatarToAzure } from "../services/azure";
+
+// Configure multer for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+});
 
 const router = Router();
 
@@ -167,15 +175,45 @@ router.patch(
       .trim()
       .isURL()
       .withMessage("Avatar must be a valid URL"),
+    body("currentPassword")
+      .optional()
+      .notEmpty()
+      .withMessage("Current password is required if setting a new password"),
+    body("newPassword")
+      .optional()
+      .isLength({ min: 8 })
+      .withMessage("New password must be at least 8 characters")
+      .matches(/[A-Z]/)
+      .withMessage("New password must contain an uppercase letter")
+      .matches(/[0-9]/)
+      .withMessage("New password must contain a number"),
   ],
   validate,
   async (req: any, res: any) => {
     try {
-      const { name, avatar } = req.body;
+      const { name, avatar, currentPassword, newPassword } = req.body;
       const user = await User.findById(req.user.sub);
 
       if (!user) {
         return res.status(404).json({ message: "User not found" });
+      }
+
+      // Handle password update
+      if (newPassword) {
+        if (!currentPassword) {
+          return res
+            .status(400)
+            .json({ message: "Current password is required" });
+        }
+
+        const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+        if (!valid) {
+          return res
+            .status(400)
+            .json({ message: "Incorrect current password" });
+        }
+
+        user.passwordHash = await bcrypt.hash(newPassword, 12);
       }
 
       if (name) user.name = name;
@@ -196,6 +234,52 @@ router.patch(
     } catch (err) {
       console.error("Profile update error:", err);
       return res.status(500).json({ message: "Internal server error" });
+    }
+  },
+);
+
+// ── POST /api/auth/profile/avatar ──
+router.post(
+  "/profile/avatar",
+  requireAuth,
+  upload.single("avatar"),
+  async (req: any, res: any) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No image file provided" });
+      }
+
+      const user = await User.findById(req.user.sub);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Upload to Azure Blob Storage
+      const avatarUrl = await uploadAvatarToAzure(
+        user.id,
+        req.file.buffer,
+        req.file.mimetype,
+      );
+
+      // Save to database
+      user.avatar = avatarUrl;
+      await user.save();
+
+      return res.status(200).json({
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar,
+          role: user.role,
+          createdAt: user.createdAt.toISOString(),
+        },
+      });
+    } catch (err) {
+      console.error("Avatar upload error:", err);
+      return res
+        .status(500)
+        .json({ message: "Internal server error during upload" });
     }
   },
 );

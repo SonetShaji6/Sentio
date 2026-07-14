@@ -40,7 +40,11 @@ export async function fetchWithAuth(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  if (!headers.has("Content-Type") && options.body) {
+  const isFormData =
+    options.body instanceof FormData ||
+    (options.body && (options.body as any).constructor?.name === "FormData");
+
+  if (!headers.has("Content-Type") && options.body && !isFormData) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -99,5 +103,28 @@ export async function updateProfile(data: {
     return { user: result.user };
   } catch {
     return { error: "Network error" };
+  }
+}
+
+// ── Upload Avatar ──
+export async function uploadAvatar(
+  file: File,
+): Promise<{ user?: AuthUser; error?: string }> {
+  try {
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    const res = await fetchWithAuth("/api/auth/profile/avatar", {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = await res.json();
+    if (!res.ok) {
+      return { error: result.message || "Failed to upload avatar" };
+    }
+    return { user: result.user };
+  } catch {
+    return { error: "Network error during upload" };
   }
 }

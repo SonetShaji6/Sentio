@@ -21,6 +21,8 @@ export interface LoginRequest {
 export interface UpdateProfileRequest {
     name?: string;
     avatar?: string;
+    currentPassword?: string;
+    newPassword?: string;
 }
 export interface AuthResponse {
     user: User;
