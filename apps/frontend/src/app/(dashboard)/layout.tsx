@@ -118,7 +118,7 @@ export default function DashboardLayout({
             </svg>
             Presentations
           </Link>
-          <Link href="/dashboard" className="nav-item">
+          <Link href="/settings" className="nav-item">
             <svg
               width="20"
               height="20"
@@ -139,7 +139,16 @@ export default function DashboardLayout({
         {/* User info at bottom */}
         <div className="sidebar-footer">
           <div className="sidebar-user">
-            <div className="avatar">{initials}</div>
+            {user?.avatar ? (
+              <img
+                src={user.avatar}
+                alt={user.name}
+                className="avatar"
+                style={{ objectFit: "cover" }}
+              />
+            ) : (
+              <div className="avatar">{initials}</div>
+            )}
             <div className="sidebar-user-info">
               <span className="sidebar-user-name">{user?.name}</span>
               <span className={roleBadgeClass}>{user?.role}</span>

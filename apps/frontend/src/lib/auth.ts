@@ -65,6 +65,7 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  avatar?: string;
   role: string;
   createdAt: string;
 }
@@ -78,5 +79,25 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
     return data.user;
   } catch {
     return null;
+  }
+}
+
+// ── Update Profile ──
+export async function updateProfile(data: {
+  name?: string;
+  avatar?: string;
+}): Promise<{ user?: AuthUser; error?: string }> {
+  try {
+    const res = await fetchWithAuth("/api/auth/profile", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (!res.ok) {
+      return { error: result.message || "Failed to update profile" };
+    }
+    return { user: result.user };
+  } catch {
+    return { error: "Network error" };
   }
 }

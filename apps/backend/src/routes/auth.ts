@@ -58,10 +58,12 @@ router.post(
       }
 
       const passwordHash = await bcrypt.hash(password, 12);
+      const avatarUrl = `https://api.dicebear.com/9.x/notionists/svg?seed=${email.toLowerCase()}`;
       const user = await User.create({
         name,
         email: email.toLowerCase(),
         passwordHash,
+        avatar: avatarUrl,
       });
 
       const tokens = generateTokens(user.id, user.role);
@@ -71,6 +73,7 @@ router.post(
           id: user.id,
           name: user.name,
           email: user.email,
+          avatar: user.avatar,
           role: user.role,
           createdAt: user.createdAt.toISOString(),
         },
@@ -112,6 +115,7 @@ router.post(
           id: user.id,
           name: user.name,
           email: user.email,
+          avatar: user.avatar,
           role: user.role,
           createdAt: user.createdAt.toISOString(),
         },
@@ -137,6 +141,7 @@ router.get("/me", requireAuth, async (req: any, res: any) => {
         id: user.id,
         name: user.name,
         email: user.email,
+        avatar: user.avatar,
         role: user.role,
         createdAt: user.createdAt.toISOString(),
       },
@@ -146,5 +151,53 @@ router.get("/me", requireAuth, async (req: any, res: any) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 });
+
+// ── PATCH /api/auth/profile ──
+router.patch(
+  "/profile",
+  requireAuth,
+  [
+    body("name")
+      .optional()
+      .trim()
+      .notEmpty()
+      .withMessage("Name cannot be empty"),
+    body("avatar")
+      .optional()
+      .trim()
+      .isURL()
+      .withMessage("Avatar must be a valid URL"),
+  ],
+  validate,
+  async (req: any, res: any) => {
+    try {
+      const { name, avatar } = req.body;
+      const user = await User.findById(req.user.sub);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (name) user.name = name;
+      if (avatar) user.avatar = avatar;
+
+      await user.save();
+
+      return res.status(200).json({
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar,
+          role: user.role,
+          createdAt: user.createdAt.toISOString(),
+        },
+      });
+    } catch (err) {
+      console.error("Profile update error:", err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  },
+);
 
 export default router;
