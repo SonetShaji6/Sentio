@@ -40,7 +40,6 @@ export default function DashboardPage() {
           <line x1="12" y1="17" x2="12" y2="21" />
         </svg>
       ),
-      gradient: "stat-gradient-blue",
     },
     {
       label: "Participants",
@@ -63,7 +62,6 @@ export default function DashboardPage() {
           <path d="M16 3.13a4 4 0 0 1 0 7.75" />
         </svg>
       ),
-      gradient: "stat-gradient-green",
     },
     {
       label: "Engagement",
@@ -83,7 +81,6 @@ export default function DashboardPage() {
           <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
         </svg>
       ),
-      gradient: "stat-gradient-purple",
     },
   ];
 
@@ -110,7 +107,7 @@ export default function DashboardPage() {
       {/* ── Stats Cards ── */}
       <section className="stats-grid">
         {stats.map((stat) => (
-          <div key={stat.label} className={`stat-card ${stat.gradient}`}>
+          <div key={stat.label} className="stat-card">
             <div className="stat-icon">{stat.icon}</div>
             <div className="stat-body">
               <span className="stat-value">{stat.value}</span>

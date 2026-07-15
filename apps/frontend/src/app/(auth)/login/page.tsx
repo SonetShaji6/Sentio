@@ -49,22 +49,18 @@ export default function LoginPage() {
 
   return (
     <>
-      <h2
-        className="text-[22px] font-semibold mb-1"
-        style={{ color: "var(--color-text-primary)" }}
-      >
-        Welcome back
-      </h2>
-      <p
-        className="text-[14px] mb-6"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
-        Sign in to your Sentio account
-      </p>
+      <div className="mb-8">
+        <h2 className="text-[22px] font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
+          Welcome back
+        </h2>
+        <p className="text-[14px] text-gray-500">
+          Sign in to your Sentio account to continue.
+        </p>
+      </div>
 
-      {globalError && <div className="alert-error mb-4">{globalError}</div>}
+      {globalError && <div className="alert-error mb-6">{globalError}</div>}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {/* Email */}
         <div>
           <label htmlFor="email" className="label">
@@ -78,14 +74,19 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             disabled={loading}
+            autoComplete="email"
+            required
           />
         </div>
 
         {/* Password */}
         <div>
-          <label htmlFor="password" className="label">
-            Password
-          </label>
+          <div className="flex items-center justify-between">
+            <label htmlFor="password" className="label">
+              Password
+            </label>
+            {/* Optional: Add forgot password link here in the future */}
+          </div>
           <input
             id="password"
             type="password"
@@ -94,28 +95,26 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             disabled={loading}
+            autoComplete="current-password"
+            required
           />
         </div>
 
         {/* Submit */}
         <button
           type="submit"
-          className="btn btn-primary w-full"
+          className="btn btn-primary w-full mt-2"
           disabled={loading}
         >
           {loading ? "Signing in…" : "Sign In"}
         </button>
       </form>
 
-      <p
-        className="mt-6 text-center text-[14px]"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
+      <p className="mt-8 text-center text-[14px] text-gray-500">
         Don&apos;t have an account?{" "}
         <Link
           href="/register"
-          className="font-medium hover:underline"
-          style={{ color: "var(--color-text-primary)" }}
+          className="font-medium text-gray-900 hover:underline decoration-gray-300 underline-offset-4"
         >
           Create one
         </Link>

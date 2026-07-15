@@ -97,22 +97,18 @@ export default function RegisterPage() {
 
   return (
     <>
-      <h2
-        className="text-[22px] font-semibold mb-1"
-        style={{ color: "var(--color-text-primary)" }}
-      >
-        Create your account
-      </h2>
-      <p
-        className="text-[14px] mb-6"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
-        Start engaging your audience with AI
-      </p>
+      <div className="mb-8">
+        <h2 className="text-[22px] font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
+          Create your account
+        </h2>
+        <p className="text-[14px] text-gray-500">
+          Start transforming your data into actionable intelligence.
+        </p>
+      </div>
 
-      {globalError && <div className="alert-error mb-4">{globalError}</div>}
+      {globalError && <div className="alert-error mb-6">{globalError}</div>}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {/* Full Name */}
         <div>
           <label htmlFor="name" className="label">
@@ -126,6 +122,8 @@ export default function RegisterPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={loading}
+            autoComplete="name"
+            required
           />
           {getError("name") && (
             <p className="field-error">{getError("name")}</p>
@@ -145,6 +143,8 @@ export default function RegisterPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             disabled={loading}
+            autoComplete="email"
+            required
           />
           {getError("email") && (
             <p className="field-error">{getError("email")}</p>
@@ -164,6 +164,8 @@ export default function RegisterPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             disabled={loading}
+            autoComplete="new-password"
+            required
           />
           {getError("password") && (
             <p className="field-error">{getError("password")}</p>
@@ -183,6 +185,8 @@ export default function RegisterPage() {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             disabled={loading}
+            autoComplete="new-password"
+            required
           />
           {getError("confirmPassword") && (
             <p className="field-error">{getError("confirmPassword")}</p>
@@ -192,22 +196,18 @@ export default function RegisterPage() {
         {/* Submit */}
         <button
           type="submit"
-          className="btn btn-primary w-full"
+          className="btn btn-primary w-full mt-2"
           disabled={loading}
         >
           {loading ? "Creating account…" : "Create Account"}
         </button>
       </form>
 
-      <p
-        className="mt-6 text-center text-[14px]"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
+      <p className="mt-8 text-center text-[14px] text-gray-500">
         Already have an account?{" "}
         <Link
           href="/login"
-          className="font-medium hover:underline"
-          style={{ color: "var(--color-text-primary)" }}
+          className="font-medium text-gray-900 hover:underline decoration-gray-300 underline-offset-4"
         >
           Sign in
         </Link>

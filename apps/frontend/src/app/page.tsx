@@ -1,65 +1,146 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Sentio - Data Intelligence",
+  description:
+    "Sentio empowers teams with secure, fast, and intelligent cloud dashboards. Manage profiles, upload securely, and analyze effortlessly.",
+  openGraph: {
+    title: "Sentio",
+    description: "Data Intelligence.",
+    type: "website",
+  },
+};
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="landing-layout">
+      {/* Navbar */}
+      <nav className="landing-nav">
+        <Link href="/" className="landing-logo">
+          Sentio
+        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/login" className="btn btn-secondary">
+            Sign In
+          </Link>
+          <Link href="/register" className="btn btn-primary">
+            Get Started
+          </Link>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </nav>
+
+      {/* Hero Section */}
+      <header className="landing-hero">
+        <div className="hero-tag">Sentio 2.0 is now available</div>
+        <h1 className="hero-title">Intelligence that drives action</h1>
+        <p className="hero-desc">
+          Transform your raw data into structured dashboards. Sentio provides
+          enterprise-grade security with a clean, minimal interface designed for
+          speed and clarity.
+        </p>
+        <div className="hero-actions">
+          <Link href="/register" className="btn btn-primary">
+            Start for free
+          </Link>
+          <Link href="/login" className="btn btn-secondary">
+            View Documentation
+          </Link>
         </div>
-      </main>
+      </header>
+
+      {/* Features Section */}
+      <section className="landing-features">
+        <div className="features-grid">
+          {/* Feature 1 */}
+          <div className="feature-card">
+            <div className="feature-icon">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+                <path d="M12 12v9" />
+                <path d="m8 17 4 4 4-4" />
+              </svg>
+            </div>
+            <h3 className="feature-title">Cloud Storage</h3>
+            <p className="feature-desc">
+              Seamlessly upload and manage assets with enterprise-grade Azure
+              Blob integration. Instant delivery globally.
+            </p>
+          </div>
+
+          {/* Feature 2 */}
+          <div className="feature-card">
+            <div className="feature-icon">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
+            <h3 className="feature-title">Bank-level Security</h3>
+            <p className="feature-desc">
+              State-of-the-art bcrypt hashing and JWT authentication. Your
+              users' data is encrypted and secure by default.
+            </p>
+          </div>
+
+          {/* Feature 3 */}
+          <div className="feature-card">
+            <div className="feature-icon">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect width="18" height="18" x="3" y="3" rx="2" />
+                <path d="M3 9h18" />
+                <path d="M9 21V9" />
+              </svg>
+            </div>
+            <h3 className="feature-title">Dynamic Dashboards</h3>
+            <p className="feature-desc">
+              Beautiful, responsive, and blazing fast React dashboards. Manage
+              profiles and visualize data in real-time.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer
+        style={{
+          padding: "40px 24px",
+          textAlign: "center",
+          borderTop: "1px solid var(--color-border)",
+          marginTop: "auto",
+        }}
+      >
+        <p style={{ fontSize: "14px", color: "var(--color-text-muted)" }}>
+          &copy; {new Date().getFullYear()} Sentio Inc. All rights reserved.
+        </p>
+      </footer>
     </div>
   );
 }
