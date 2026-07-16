@@ -1,37 +1,41 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { setTokens } from "@/lib/auth";
 
 interface FieldError {
   field: string;
   message: string;
 }
 
-export default function RegisterPage() {
-  const [name, setName] = useState("");
+function ResetPasswordForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
   const [fieldErrors, setFieldErrors] = useState<FieldError[]>([]);
   const [globalError, setGlobalError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!token) {
+      setGlobalError("Invalid or missing password reset token.");
+    }
+  }, [token]);
 
   function getError(field: string): string | undefined {
     return fieldErrors.find((e) => e.field === field)?.message;
   }
 
-  // Client-side validation
   function validateClient(): FieldError[] {
     const errs: FieldError[] = [];
-    if (!name.trim())
-      errs.push({ field: "name", message: "Full name is required" });
     if (!email.trim()) {
       errs.push({ field: "email", message: "Email is required" });
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errs.push({ field: "email", message: "Enter a valid email address" });
     }
     if (password.length < 8)
       errs.push({
@@ -56,7 +60,13 @@ export default function RegisterPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setGlobalError("");
+    setSuccessMsg("");
     setFieldErrors([]);
+
+    if (!token) {
+      setGlobalError("Missing token.");
+      return;
+    }
 
     const clientErrors = validateClient();
     if (clientErrors.length > 0) {
@@ -68,11 +78,10 @@ export default function RegisterPage() {
     try {
       const API_URL =
         process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-      const res = await fetch(`${API_URL}/api/auth/register`, {
+      const res = await fetch(`${API_URL}/api/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, confirmPassword }),
-        credentials: "include",
+        body: JSON.stringify({ token, email, password }),
       });
 
       const data = await res.json();
@@ -81,14 +90,15 @@ export default function RegisterPage() {
         if (data.errors) {
           setFieldErrors(data.errors);
         } else {
-          setGlobalError(data.message || "Registration failed");
+          setGlobalError(data.message || "Reset failed");
         }
         return;
       }
 
-      // Store tokens and redirect to dashboard
-      setTokens(data.accessToken);
-      window.location.href = "/dashboard";
+      setSuccessMsg(data.message || "Password successfully reset!");
+      setTimeout(() => {
+        router.push("/login");
+      }, 3000);
     } catch {
       setGlobalError("Network error. Please try again.");
     } finally {
@@ -96,42 +106,32 @@ export default function RegisterPage() {
     }
   }
 
+  if (successMsg) {
+    return (
+      <div className="text-center py-8">
+        <h2 className="text-2xl font-semibold text-gray-900 mb-4">Success!</h2>
+        <p className="text-gray-600 mb-6">{successMsg}</p>
+        <Link href="/login" className="btn btn-primary">
+          Go to Sign In
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="mb-8">
         <h2 className="text-[22px] font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
-          Create your account
+          Reset Password
         </h2>
         <p className="text-[14px] text-gray-500">
-          Start transforming your data into actionable intelligence.
+          Enter your new password below.
         </p>
       </div>
 
       {globalError && <div className="alert-error mb-6">{globalError}</div>}
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Full Name */}
-        <div>
-          <label htmlFor="name" className="label">
-            Full Name
-          </label>
-          <input
-            id="name"
-            type="text"
-            className={`input-field ${getError("name") ? "input-error" : ""}`}
-            placeholder="John Doe"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={loading}
-            autoComplete="name"
-            required
-          />
-          {getError("name") && (
-            <p className="field-error">{getError("name")}</p>
-          )}
-        </div>
-
-        {/* Email */}
         <div>
           <label htmlFor="email" className="label">
             Email Address
@@ -143,8 +143,7 @@ export default function RegisterPage() {
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            disabled={loading}
-            autoComplete="email"
+            disabled={loading || !token}
             required
           />
           {getError("email") && (
@@ -152,10 +151,9 @@ export default function RegisterPage() {
           )}
         </div>
 
-        {/* Password */}
         <div>
           <label htmlFor="password" className="label">
-            Password
+            New Password
           </label>
           <input
             id="password"
@@ -164,8 +162,7 @@ export default function RegisterPage() {
             placeholder="Min 8 chars, 1 uppercase, 1 number"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
-            autoComplete="new-password"
+            disabled={loading || !token}
             required
           />
           {getError("password") && (
@@ -173,10 +170,9 @@ export default function RegisterPage() {
           )}
         </div>
 
-        {/* Confirm Password */}
         <div>
           <label htmlFor="confirmPassword" className="label">
-            Confirm Password
+            Confirm New Password
           </label>
           <input
             id="confirmPassword"
@@ -185,8 +181,7 @@ export default function RegisterPage() {
             placeholder="Re-enter your password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            disabled={loading}
-            autoComplete="new-password"
+            disabled={loading || !token}
             required
           />
           {getError("confirmPassword") && (
@@ -194,25 +189,22 @@ export default function RegisterPage() {
           )}
         </div>
 
-        {/* Submit */}
         <button
           type="submit"
           className="btn btn-primary w-full mt-2"
-          disabled={loading}
+          disabled={loading || !token}
         >
-          {loading ? "Creating account…" : "Create Account"}
+          {loading ? "Resetting…" : "Reset Password"}
         </button>
       </form>
-
-      <p className="mt-8 text-center text-[14px] text-gray-500">
-        Already have an account?{" "}
-        <Link
-          href="/login"
-          className="font-medium text-gray-900 hover:underline decoration-gray-300 underline-offset-4"
-        >
-          Sign in
-        </Link>
-      </p>
     </>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

@@ -5,6 +5,7 @@ import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import cookieParser from "cookie-parser";
 import { APP_NAME } from "@sentio/shared";
 import authRoutes from "./routes/auth";
 
@@ -33,6 +34,7 @@ app.use(
 );
 app.use(helmet());
 app.use(express.json());
+app.use(cookieParser());
 
 // ── Routes ──
 app.get("/health", (_req, res) => {

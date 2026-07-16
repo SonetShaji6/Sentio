@@ -2,21 +2,20 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { setTokens } from "@/lib/auth";
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
   const [globalError, setGlobalError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setGlobalError("");
+    setSuccessMsg("");
 
-    if (!email.trim() || !password.trim()) {
-      setGlobalError("Please enter your email and password.");
+    if (!email.trim()) {
+      setGlobalError("Please enter your email.");
       return;
     }
 
@@ -24,23 +23,20 @@ export default function LoginPage() {
     try {
       const API_URL =
         process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-      const res = await fetch(`${API_URL}/api/auth/login`, {
+      const res = await fetch(`${API_URL}/api/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-        credentials: "include",
+        body: JSON.stringify({ email }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setGlobalError(data.message || "Login failed");
+        setGlobalError(data.message || "Request failed");
         return;
       }
 
-      // Store tokens and redirect to dashboard
-      setTokens(data.accessToken);
-      window.location.href = "/dashboard";
+      setSuccessMsg(data.message || "Reset link sent!");
     } catch {
       setGlobalError("Network error. Please try again.");
     } finally {
@@ -52,17 +48,22 @@ export default function LoginPage() {
     <>
       <div className="mb-8">
         <h2 className="text-[22px] font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
-          Welcome back
+          Forgot Password
         </h2>
         <p className="text-[14px] text-gray-500">
-          Sign in to your Sentio account to continue.
+          Enter your email address and we'll send you a link to reset your
+          password.
         </p>
       </div>
 
       {globalError && <div className="alert-error mb-6">{globalError}</div>}
+      {successMsg && (
+        <div className="alert-success mb-6 p-3 bg-green-50 text-green-700 text-sm rounded-md border border-green-200">
+          {successMsg}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Email */}
         <div>
           <label htmlFor="email" className="label">
             Email Address
@@ -75,54 +76,26 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             disabled={loading}
-            autoComplete="email"
             required
           />
         </div>
 
-        {/* Password */}
-        <div>
-          <div className="flex items-center justify-between">
-            <label htmlFor="password" className="label">
-              Password
-            </label>
-            <Link
-              href="/forgot-password"
-              className="text-[13px] font-medium text-blue-600 hover:underline"
-            >
-              Forgot password?
-            </Link>
-          </div>
-          <input
-            id="password"
-            type="password"
-            className="input-field"
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
-            autoComplete="current-password"
-            required
-          />
-        </div>
-
-        {/* Submit */}
         <button
           type="submit"
           className="btn btn-primary w-full mt-2"
           disabled={loading}
         >
-          {loading ? "Signing in…" : "Sign In"}
+          {loading ? "Sending link…" : "Send Reset Link"}
         </button>
       </form>
 
       <p className="mt-8 text-center text-[14px] text-gray-500">
-        Don&apos;t have an account?{" "}
+        Remember your password?{" "}
         <Link
-          href="/register"
+          href="/login"
           className="font-medium text-gray-900 hover:underline decoration-gray-300 underline-offset-4"
         >
-          Create one
+          Sign in
         </Link>
       </p>
     </>

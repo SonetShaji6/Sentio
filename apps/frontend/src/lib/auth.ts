@@ -7,24 +7,57 @@ export function getAccessToken(): string | null {
   return localStorage.getItem("accessToken");
 }
 
-export function getRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("refreshToken");
-}
-
-export function setTokens(accessToken: string, refreshToken: string): void {
+export function setTokens(accessToken: string): void {
   localStorage.setItem("accessToken", accessToken);
-  localStorage.setItem("refreshToken", refreshToken);
 }
 
 export function clearTokens(): void {
   localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
 }
 
-export function logout(): void {
+export async function logout(): Promise<void> {
   clearTokens();
+  try {
+    await fetch(`${API_URL}/api/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch (err) {
+    console.error("Logout request failed", err);
+  }
   window.location.href = "/login";
+}
+
+let isRefreshing = false;
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshToken(): Promise<string | null> {
+  if (isRefreshing) {
+    return refreshPromise;
+  }
+
+  isRefreshing = true;
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTokens(data.accessToken);
+        return data.accessToken;
+      }
+      return null;
+    } catch {
+      return null;
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 }
 
 // ── Authenticated fetch ──
@@ -51,13 +84,25 @@ export async function fetchWithAuth(
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers,
+    credentials: "include",
   });
 
   // Auto-logout on 401
   if (res.status === 401) {
-    clearTokens();
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
+    const newAccessToken = await refreshToken();
+
+    if (newAccessToken) {
+      headers.set("Authorization", `Bearer ${newAccessToken}`);
+      return fetch(`${API_URL}${path}`, {
+        ...options,
+        headers,
+        credentials: "include",
+      });
+    } else {
+      clearTokens();
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
     }
   }
 
