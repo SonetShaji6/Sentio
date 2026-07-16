@@ -4,12 +4,13 @@ import { Server } from "socket.io";
 import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
+
+dotenv.config();
+
 import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
 import { APP_NAME } from "@sentio/shared";
 import authRoutes from "./routes/auth";
-
-dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
