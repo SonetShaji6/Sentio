@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
+import { Logo } from "./Logo";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -22,11 +23,7 @@ export function Navbar() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="text-xl font-bold tracking-tight text-gray-900">
-                Sentio
-              </span>
-            </Link>
+            <Logo imageClassName="h-8 w-8" />
           </div>
           <div className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-8">

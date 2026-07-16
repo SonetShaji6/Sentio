@@ -9,6 +9,7 @@ import {
   logout,
   type AuthUser,
 } from "@/lib/auth";
+import { Logo } from "@/components/Logo";
 
 export default function DashboardLayout({
   children,
@@ -70,9 +71,7 @@ export default function DashboardLayout({
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}>
         <div className="sidebar-header">
-          <Link href="/dashboard" className="sidebar-logo">
-            Sentio
-          </Link>
+          <Logo imageClassName="h-8 w-8" className="sidebar-logo" />
           <button
             className="sidebar-close"
             onClick={() => setSidebarOpen(false)}
@@ -197,7 +196,7 @@ export default function DashboardLayout({
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <span className="mobile-logo">Sentio</span>
+          <Logo imageClassName="h-6 w-6" className="mobile-logo" />
         </header>
 
         <div className="dashboard-content">{children}</div>

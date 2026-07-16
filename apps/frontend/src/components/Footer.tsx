@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "./Logo";
 
 export function Footer() {
   return (
@@ -6,9 +7,7 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-1">
-            <span className="text-xl font-bold tracking-tight text-gray-900">
-              Sentio
-            </span>
+            <Logo imageClassName="h-8 w-8" />
             <p className="mt-4 text-sm text-gray-500">
               AI-enhanced real-time audience engagement platform.
             </p>

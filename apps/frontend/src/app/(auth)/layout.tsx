@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 
 export default function AuthLayout({
   children,
@@ -35,15 +36,8 @@ export default function AuthLayout({
 
       <div className="w-full max-w-[420px]">
         {/* ── Logo / Wordmark ── */}
-        <div className="mb-8 text-center">
-          <Link href="/" className="inline-block">
-            <h1
-              className="text-[28px] font-bold tracking-tight"
-              style={{ color: "var(--color-text-primary)" }}
-            >
-              Sentio
-            </h1>
-          </Link>
+        <div className="mb-8 text-center flex flex-col items-center justify-center">
+          <Logo imageClassName="h-16 w-16" />
           <p
             className="mt-2 text-[14px]"
             style={{ color: "var(--color-text-muted)" }}
