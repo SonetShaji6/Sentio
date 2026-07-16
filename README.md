@@ -221,9 +221,6 @@ If you’d like to improve Sentio, open an issue and submit a pull request.
 
 ---
 
-## 📜 License
-
-Add your license here (MIT / Apache-2.0 / etc.)
 
 ---
 
