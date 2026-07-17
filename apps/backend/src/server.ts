@@ -11,6 +11,8 @@ import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
 import { APP_NAME } from "@sentio/shared";
 import authRoutes from "./routes/auth";
+import presentationRoutes from "./routes/presentations";
+import notificationRoutes from "./routes/notifications";
 
 const app = express();
 const server = http.createServer(app);
@@ -43,6 +45,8 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/presentations", presentationRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // ── Socket.IO ──
 io.on("connection", (socket) => {

@@ -12,6 +12,13 @@ export interface IUser extends Document {
   isEmailVerified: boolean;
   emailVerificationToken?: string;
   emailVerificationExpires?: Date;
+  preferences?: {
+    theme: "light" | "dark" | "system";
+    notifications: {
+      email: boolean;
+      push: boolean;
+    };
+  };
   createdAt: Date;
 }
 
@@ -37,6 +44,17 @@ const UserSchema = new Schema<IUser>(
     isEmailVerified: { type: Boolean, default: false },
     emailVerificationToken: { type: String },
     emailVerificationExpires: { type: Date },
+    preferences: {
+      theme: {
+        type: String,
+        enum: ["light", "dark", "system"],
+        default: "system",
+      },
+      notifications: {
+        email: { type: Boolean, default: true },
+        push: { type: Boolean, default: true },
+      },
+    },
   },
   { timestamps: true },
 );

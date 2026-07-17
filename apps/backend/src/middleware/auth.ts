@@ -6,11 +6,12 @@ const JWT_SECRET = process.env.JWT_SECRET || "sentio-dev-secret";
 export interface AuthPayload {
   sub: string;
   role: string;
+  id?: string;
 }
 
 /**
  * Verifies the Bearer token from the Authorization header.
- * On success, attaches `req.user` with { sub, role }.
+ * On success, attaches `req.user` with { sub, role, id }.
  */
 export function requireAuth(
   req: Request,
@@ -26,6 +27,7 @@ export function requireAuth(
   const token = header.slice(7);
   try {
     const payload = jwt.verify(token, JWT_SECRET) as AuthPayload;
+    payload.id = payload.sub;
     (req as any).user = payload;
     next();
   } catch {

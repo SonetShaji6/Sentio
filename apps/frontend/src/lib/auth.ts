@@ -1,4 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+export const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 // ── Token helpers ──
 
@@ -117,6 +118,13 @@ export interface AuthUser {
   avatar?: string;
   role: string;
   createdAt: string;
+  preferences?: {
+    theme: "light" | "dark" | "system";
+    notifications: {
+      email: boolean;
+      push: boolean;
+    };
+  };
 }
 
 // ── Fetch current user ──
@@ -135,6 +143,9 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
 export async function updateProfile(data: {
   name?: string;
   avatar?: string;
+  preferences?: any;
+  currentPassword?: string;
+  newPassword?: string;
 }): Promise<{ user?: AuthUser; error?: string }> {
   try {
     const res = await fetchWithAuth("/api/auth/profile", {

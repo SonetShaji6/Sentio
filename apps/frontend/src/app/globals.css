@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ── Design System Tokens ── */
 :root {
   --color-bg-app: #f5f5f3;
@@ -32,6 +34,22 @@
   --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
+.dark {
+  --color-bg-app: #0a0a0a;
+  --color-bg-surface: #111111;
+  --color-bg-subtle: #1a1a1a;
+  --color-bg-muted: #262626;
+
+  --color-text-primary: #f5f5f5;
+  --color-text-secondary: #a3a3a3;
+  --color-text-muted: #737373;
+
+  --color-border: #262626;
+
+  --color-black: #ffffff;
+  --color-white: #000000;
+}
+
 @theme inline {
   --color-background: var(--color-bg-app);
   --color-foreground: var(--color-text-primary);
@@ -46,8 +64,6 @@
 }
 
 body {
-  background: var(--color-bg-app);
-  color: var(--color-text-primary);
   font-family: var(--font-inter, "Inter", system-ui, -apple-system, sans-serif);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -173,7 +189,6 @@ body {
 .dashboard-shell {
   display: flex;
   min-height: 100vh;
-  background: var(--color-bg-app);
 }
 
 /* ── Sidebar ── */
@@ -183,8 +198,6 @@ body {
   left: 0;
   bottom: 0;
   width: 260px;
-  background: var(--color-bg-surface);
-  border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   z-index: 40;

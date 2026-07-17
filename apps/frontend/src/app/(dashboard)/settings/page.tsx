@@ -7,6 +7,7 @@ import {
   uploadAvatar,
   type AuthUser,
 } from "@/lib/auth";
+import { useTheme } from "next-themes";
 
 export default function SettingsPage() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -21,6 +22,14 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  // Preferences state
+  const [themePref, setThemePref] = useState<"light" | "dark" | "system">(
+    "system",
+  );
+  const [emailNotifs, setEmailNotifs] = useState(true);
+  const [pushNotifs, setPushNotifs] = useState(true);
+  const { setTheme } = useTheme();
+
   // Status state
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,6 +42,11 @@ export default function SettingsPage() {
         setUser(u);
         setName(u.name);
         setAvatar(u.avatar || "");
+        if (u.preferences) {
+          setThemePref(u.preferences.theme);
+          setEmailNotifs(u.preferences.notifications.email);
+          setPushNotifs(u.preferences.notifications.push);
+        }
       }
       setLoading(false);
     });
@@ -84,10 +98,26 @@ export default function SettingsPage() {
 
     setSaving(true);
 
-    const payload: any = { name, avatar };
+    const payload: any = {
+      name,
+      avatar,
+      preferences: {
+        theme: themePref,
+        notifications: {
+          email: emailNotifs,
+          push: pushNotifs,
+        },
+      },
+    };
+
     if (newPassword) {
       payload.currentPassword = currentPassword;
       payload.newPassword = newPassword;
+    }
+
+    // Apply theme immediately on save
+    if (themePref !== "system") {
+      setTheme(themePref);
     }
 
     const { user: updatedUser, error } = await updateProfile(payload);
@@ -220,6 +250,55 @@ export default function SettingsPage() {
                 <p className="text-xs text-gray-500 mt-2">
                   Email cannot be changed.
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* PREFERENCES SECTION */}
+        <div className="section-card">
+          <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">
+            Preferences
+          </h2>
+          <div className="space-y-6">
+            <div>
+              <label className="label block mb-2">Theme</label>
+              <select
+                className="input-field w-full sm:w-1/2"
+                value={themePref}
+                onChange={(e) => setThemePref(e.target.value as any)}
+              >
+                <option value="system">System (Default)</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </div>
+
+            <div>
+              <h3 className="label block mb-3">Notifications</h3>
+              <div className="space-y-3">
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={emailNotifs}
+                    onChange={(e) => setEmailNotifs(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    Email Notifications
+                  </span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={pushNotifs}
+                    onChange={(e) => setPushNotifs(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    Push Notifications
+                  </span>
+                </label>
               </div>
             </div>
           </div>
