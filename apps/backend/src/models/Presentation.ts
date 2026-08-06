@@ -6,6 +6,8 @@ export interface IPresentationVersion {
   title: string;
   description: string;
   contentSnapshot: any; // We'll keep this generic for now until the editor module defines the exact slide structure
+  user?: mongoose.Types.ObjectId;
+  changeReason?: string;
 }
 
 export interface IPresentation extends Document {
@@ -35,6 +37,8 @@ const PresentationVersionSchema = new Schema<IPresentationVersion>(
     title: { type: String, required: true },
     description: { type: String, default: "" },
     contentSnapshot: { type: Schema.Types.Mixed }, // Store arbitrary JSON representation of slides
+    user: { type: Schema.Types.ObjectId, ref: "User" },
+    changeReason: { type: String },
   },
   { _id: false },
 );

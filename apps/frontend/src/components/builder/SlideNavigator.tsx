@@ -6,6 +6,7 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -153,10 +154,17 @@ function SortableSlideItem({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setMenuOpen(false);
-                onDelete();
+                if (!slide.isLocked) {
+                  setMenuOpen(false);
+                  onDelete();
+                }
               }}
-              className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+              disabled={slide.isLocked}
+              className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 ${
+                slide.isLocked
+                  ? "text-gray-400 cursor-not-allowed opacity-50"
+                  : "text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+              }`}
             >
               <Trash2 className="w-4 h-4" /> Delete
             </button>
@@ -199,6 +207,9 @@ export function SlideNavigator({
 }: SlideNavigatorProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),

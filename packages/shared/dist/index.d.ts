@@ -36,3 +36,4 @@ export interface ApiError {
         message: string;
     }[];
 }
+export * from "./events/socket.events";

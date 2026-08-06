@@ -203,6 +203,28 @@ router.post(
       });
 
       await duplicate.save();
+
+      // Duplicate slides
+      const originalSlides = await Slide.find({
+        presentationId: original._id,
+      }).sort({ order: 1 });
+
+      const duplicatedSlides = originalSlides.map((slide) => ({
+        presentationId: duplicate._id,
+        type: slide.type,
+        order: slide.order,
+        title: slide.title,
+        description: slide.description,
+        config: slide.config,
+        isHidden: slide.isHidden,
+        isLocked: false, // Unlock duplicated slides by default
+        themeOverrides: slide.themeOverrides,
+      }));
+
+      if (duplicatedSlides.length > 0) {
+        await Slide.insertMany(duplicatedSlides);
+      }
+
       res.status(201).json(duplicate);
     } catch (error) {
       console.error("Duplicate presentation error:", error);
@@ -334,6 +356,8 @@ router.post(
         presentationId: presentation._id,
       }).sort({ order: 1 });
 
+      const { changeReason } = req.body;
+
       const newVersion = {
         versionId: `v-${Date.now()}`,
         createdAt: new Date(),
@@ -342,6 +366,8 @@ router.post(
         contentSnapshot: {
           slides: slides,
         },
+        user: req.user!.id,
+        changeReason: changeReason || "Manual snapshot",
       };
 
       presentation.versionHistory.push(newVersion);
@@ -351,6 +377,89 @@ router.post(
     } catch (error) {
       console.error("Create version error:", error);
       res.status(500).json({ error: "Failed to create version snapshot" });
+    }
+  },
+);
+
+// ── 10a. Get Versions ──
+router.get(
+  "/:id/versions",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const presentation = await Presentation.findOne({
+        _id: req.params.id,
+        owner: req.user!.id,
+      });
+      if (!presentation) {
+        res.status(404).json({ error: "Presentation not found" });
+        return;
+      }
+
+      // Return history sorted by newest first
+      const history = [...presentation.versionHistory].sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+      );
+
+      res.json(history);
+    } catch (error) {
+      console.error("Get versions error:", error);
+      res.status(500).json({ error: "Failed to get version history" });
+    }
+  },
+);
+
+// ── 10b. Restore Version ──
+router.post(
+  "/:id/versions/:versionId/restore",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const presentation = await Presentation.findOne({
+        _id: req.params.id,
+        owner: req.user!.id,
+      });
+      if (!presentation) {
+        res.status(404).json({ error: "Presentation not found" });
+        return;
+      }
+
+      const version = presentation.versionHistory.find(
+        (v) => v.versionId === req.params.versionId,
+      );
+
+      if (!version) {
+        res.status(404).json({ error: "Version not found" });
+        return;
+      }
+
+      // Delete existing slides
+      await Slide.deleteMany({ presentationId: presentation._id });
+
+      // Recreate slides from snapshot
+      const snapshotSlides = version.contentSnapshot?.slides || [];
+      const restoredSlides = snapshotSlides.map((slide: any) => {
+        // Exclude _id to let mongo generate new ones
+        const { _id, createdAt, updatedAt, ...rest } = slide;
+        return {
+          ...rest,
+          presentationId: presentation._id,
+        };
+      });
+
+      if (restoredSlides.length > 0) {
+        await Slide.insertMany(restoredSlides);
+      }
+
+      // Restore metadata
+      presentation.title = version.title;
+      presentation.description = version.description;
+      await presentation.save();
+
+      res.json({ success: true, presentation });
+    } catch (error) {
+      console.error("Restore version error:", error);
+      res.status(500).json({ error: "Failed to restore version" });
     }
   },
 );
@@ -515,8 +624,24 @@ router.put(
         return;
       }
 
+      const existingSlide = await Slide.findOne({
+        _id: req.params.slideId,
+        presentationId: presentation._id,
+      });
+
+      if (!existingSlide) {
+        res.status(404).json({ error: "Slide not found" });
+        return;
+      }
+
       const { title, description, config, isHidden, isLocked, themeOverrides } =
         req.body;
+
+      // If slide is locked, only allow unlocking
+      if (existingSlide.isLocked && isLocked !== false) {
+        res.status(403).json({ error: "Slide is locked and cannot be edited" });
+        return;
+      }
 
       const updateData: any = {};
       if (title !== undefined) updateData.title = title;
@@ -561,14 +686,22 @@ router.delete(
         return;
       }
 
-      const slide = await Slide.findOneAndDelete({
+      const existingSlide = await Slide.findOne({
         _id: req.params.slideId,
         presentationId: presentation._id,
       });
-      if (!slide) {
+
+      if (!existingSlide) {
         res.status(404).json({ error: "Slide not found" });
         return;
       }
+
+      if (existingSlide.isLocked) {
+        res.status(403).json({ error: "Cannot delete a locked slide" });
+        return;
+      }
+
+      await Slide.deleteOne({ _id: existingSlide._id });
 
       res.json({ success: true });
     } catch (error) {

@@ -93,16 +93,20 @@ function SlideConfigPanel({
                         newOpts[i] = e.target.value;
                         handleConfigChange("options", newOpts);
                       }}
-                      className="flex-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                      className="flex-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder={`Option ${i + 1}`}
+                      disabled={slide.isLocked}
                     />
                     <button
                       onClick={() => {
-                        const newOpts = [...(slide.config?.options || [])];
-                        newOpts.splice(i, 1);
-                        handleConfigChange("options", newOpts);
+                        if (!slide.isLocked) {
+                          const newOpts = [...(slide.config?.options || [])];
+                          newOpts.splice(i, 1);
+                          handleConfigChange("options", newOpts);
+                        }
                       }}
-                      className="p-2 text-gray-400 hover:text-red-500 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"
+                      disabled={slide.isLocked}
+                      className="p-2 text-gray-400 hover:text-red-500 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -110,10 +114,13 @@ function SlideConfigPanel({
                 ))}
                 <button
                   onClick={() => {
-                    const newOpts = [...(slide.config?.options || []), ""];
-                    handleConfigChange("options", newOpts);
+                    if (!slide.isLocked) {
+                      const newOpts = [...(slide.config?.options || []), ""];
+                      handleConfigChange("options", newOpts);
+                    }
                   }}
-                  className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium px-2 py-1"
+                  disabled={slide.isLocked}
+                  className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" /> Add Option
                 </button>
@@ -137,7 +144,8 @@ function SlideConfigPanel({
                     max: Number(e.target.value),
                   })
                 }
-                className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                disabled={slide.isLocked}
+                className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md px-3 py-2 text-sm text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="5">1 to 5</option>
                 <option value="10">1 to 10</option>
@@ -177,7 +185,8 @@ function SlideConfigPanel({
               type="text"
               value={slide.title}
               onChange={(e) => handleUpdate({ title: e.target.value })}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-950 border border-gray-300 dark:border-gray-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              disabled={slide.isLocked}
+              className="w-full px-3 py-2 bg-white dark:bg-gray-950 border border-gray-300 dark:border-gray-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="Enter slide title..."
             />
           </div>
@@ -190,7 +199,8 @@ function SlideConfigPanel({
               value={slide.description}
               onChange={(e) => handleUpdate({ description: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-950 border border-gray-300 dark:border-gray-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none text-sm"
+              disabled={slide.isLocked}
+              className="w-full px-3 py-2 bg-white dark:bg-gray-950 border border-gray-300 dark:border-gray-700 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="Add some context..."
             />
           </div>
@@ -210,7 +220,8 @@ function SlideConfigPanel({
               type="checkbox"
               checked={slide.isHidden}
               onChange={(e) => handleUpdate({ isHidden: e.target.checked })}
-              className="w-4 h-4 text-blue-600 rounded"
+              disabled={slide.isLocked}
+              className="w-4 h-4 text-blue-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <div className="flex-1">
               <div className="text-sm font-medium">Hide Slide</div>
@@ -228,9 +239,9 @@ function SlideConfigPanel({
               className="w-4 h-4 text-blue-600 rounded"
             />
             <div className="flex-1">
-              <div className="text-sm font-medium">Lock Interaction</div>
+              <div className="text-sm font-medium">Lock Slide</div>
               <div className="text-xs text-gray-500">
-                Prevent audience submissions
+                Prevent edits and deletion
               </div>
             </div>
           </label>

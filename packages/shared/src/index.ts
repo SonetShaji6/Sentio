@@ -43,3 +43,5 @@ export interface ApiError {
   message: string;
   errors?: { field: string; message: string }[];
 }
+
+export * from "./events/socket.events";
