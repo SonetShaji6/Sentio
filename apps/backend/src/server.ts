@@ -13,10 +13,20 @@ import { APP_NAME } from "@sentio/shared";
 import authRoutes from "./routes/auth";
 import presentationRoutes from "./routes/presentations";
 import notificationRoutes from "./routes/notifications";
-import Session from "./models/Session";
+import sessionRoutes from "./routes/sessions";
+import analyticsRoutes from "./routes/analytics";
+import aiRoutes from "./routes/ai";
+import reportRoutes from "./routes/reports";
+import fileRoutes from "./routes/files";
+import adminRoutes from "./routes/admin";
+import organizationRoutes from "./routes/organizations";
+
+import { registerSocketHandlers } from "./socketHandlers";
+import { correlationIdMiddleware } from "./middleware/correlationId";
 
 const app = express();
 const server = http.createServer(app);
+
 // ── CORS origins ──
 const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000")
   .split(",")
@@ -30,6 +40,7 @@ const io = new Server(server, {
 });
 
 // ── Middleware ──
+app.use(correlationIdMiddleware);
 app.use(
   cors({
     origin: allowedOrigins,
@@ -40,184 +51,70 @@ app.use(helmet());
 app.use(express.json());
 app.use(cookieParser());
 
-// ── Routes ──
-app.get("/health", (_req, res) => {
-  res.status(200).json({ status: "ok", app: APP_NAME });
+// ── Health Monitoring Endpoint (Module 16.14) ──
+app.get("/health", async (_req, res) => {
+  const mongoState = mongoose.connection.readyState;
+  const mongoStatus =
+    mongoState === 1 ? "UP" : mongoState === 2 ? "CONNECTING" : "DOWN";
+  const groqStatus = process.env.GROQ_API_KEY ? "UP" : "DEGRADED";
+  const azureStatus = process.env.AZURE_STORAGE_CONNECTION_STRING
+    ? "UP"
+    : "DEGRADED";
+
+  const overallStatus =
+    mongoStatus === "UP"
+      ? groqStatus === "UP"
+        ? "HEALTHY"
+        : "DEGRADED"
+      : "UNHEALTHY";
+
+  res.status(overallStatus === "UNHEALTHY" ? 503 : 200).json({
+    status: overallStatus,
+    app: APP_NAME,
+    timestamp: new Date().toISOString(),
+    services: {
+      database: mongoStatus,
+      aiProvider: groqStatus,
+      blobStorage: azureStatus,
+    },
+  });
 });
 
+// ── Routes ──
 app.use("/api/auth", authRoutes);
 app.use("/api/presentations", presentationRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/sessions", sessionRoutes);
+app.use("/api/analytics", analyticsRoutes);
+app.use("/api/ai", aiRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/files", fileRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/organizations", organizationRoutes);
+
+// ── Global Error Handling Middleware (Module 16.12) ──
+app.use(
+  (
+    err: any,
+    req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction,
+  ) => {
+    const correlationId = (req as any).correlationId;
+    console.error(`[Error] [CorrelationID: ${correlationId}]`, err);
+
+    res.status(err.status || 500).json({
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Internal server error"
+          : err.message || "Internal server error",
+      correlationId,
+    });
+  },
+);
 
 // ── Socket.IO ──
-io.on("connection", (socket) => {
-  console.log("A user connected:", socket.id);
-
-  // --- HOST EVENTS ---
-
-  socket.on("host-start", async ({ presentationId, joinCode }) => {
-    try {
-      let session = await Session.findOne({
-        presentationId,
-        status: { $ne: "ended" },
-      });
-      if (!session) {
-        session = new Session({
-          presentationId,
-          joinCode,
-          status: "live",
-          startedAt: new Date(),
-          hostSocketId: socket.id,
-        });
-      } else {
-        session.status = "live";
-        session.hostSocketId = socket.id;
-      }
-      await session.save();
-
-      socket.join(joinCode);
-      io.to(joinCode).emit("session-started", { session });
-    } catch (error) {
-      console.error("host-start error:", error);
-    }
-  });
-
-  socket.on("host-slide-change", async ({ joinCode, slideIndex }) => {
-    try {
-      const session = await Session.findOneAndUpdate(
-        { joinCode },
-        { currentSlideIndex: slideIndex },
-        { new: true },
-      );
-      if (session) {
-        io.to(joinCode).emit("slide-changed", { slideIndex });
-      }
-    } catch (error) {
-      console.error("host-slide-change error:", error);
-    }
-  });
-
-  socket.on("host-pause", async ({ joinCode }) => {
-    await Session.updateOne({ joinCode }, { status: "paused" });
-    io.to(joinCode).emit("session-paused");
-  });
-
-  socket.on("host-resume", async ({ joinCode }) => {
-    await Session.updateOne({ joinCode }, { status: "live" });
-    io.to(joinCode).emit("session-resumed");
-  });
-
-  socket.on("host-end", async ({ joinCode }) => {
-    await Session.updateOne(
-      { joinCode },
-      { status: "ended", endedAt: new Date() },
-    );
-    io.to(joinCode).emit("session-ended");
-  });
-
-  // --- AUDIENCE EVENTS ---
-
-  socket.on("join-session", async ({ joinCode, displayName }) => {
-    try {
-      const session = await Session.findOne({
-        joinCode,
-        status: { $ne: "ended" },
-      });
-      if (!session) {
-        socket.emit("join-error", "Session not found or has ended.");
-        return;
-      }
-
-      socket.join(joinCode);
-
-      const existingParticipant = session.participants.find(
-        (p) => p.displayName === displayName,
-      );
-
-      if (existingParticipant) {
-        existingParticipant.socketId = socket.id;
-        existingParticipant.isOnline = true;
-      } else {
-        session.participants.push({
-          socketId: socket.id,
-          displayName,
-          joinedAt: new Date(),
-          isOnline: true,
-          score: 0,
-          responses: [],
-        });
-      }
-
-      await session.save();
-
-      socket.emit("join-success", { session });
-      io.to(joinCode).emit("audience-updated", {
-        count: session.participants.filter((p) => p.isOnline).length,
-      });
-    } catch (error) {
-      console.error("join-session error:", error);
-      socket.emit("join-error", "An error occurred while joining.");
-    }
-  });
-
-  socket.on("audience-submit", async ({ joinCode, response }) => {
-    try {
-      const session = await Session.findOne({ joinCode });
-      if (session) {
-        const participant = session.participants.find(
-          (p) => p.socketId === socket.id,
-        );
-        if (participant) {
-          participant.responses.push(response);
-          // Example of generic scoring if it was a quiz
-          if (response.isCorrect) participant.score += 10;
-          await session.save();
-
-          // Notify host of updated results
-          io.to(joinCode).emit("results-updated", { session });
-        }
-      }
-    } catch (error) {
-      console.error("audience-submit error:", error);
-    }
-  });
-
-  socket.on("disconnect", async () => {
-    console.log("User disconnected:", socket.id);
-
-    try {
-      // Find session where this socket was a participant
-      const session = await Session.findOne({
-        "participants.socketId": socket.id,
-      });
-      if (session) {
-        const participant = session.participants.find(
-          (p) => p.socketId === socket.id,
-        );
-        if (participant) {
-          participant.isOnline = false;
-          await session.save();
-
-          io.to(session.joinCode).emit("audience-updated", {
-            count: session.participants.filter((p) => p.isOnline).length,
-          });
-        }
-      }
-
-      // Also check if this socket was a host
-      const hostSession = await Session.findOne({
-        hostSocketId: socket.id,
-        status: { $ne: "ended" },
-      });
-      if (hostSession) {
-        // Optionally emit something if the host drops
-        // io.to(hostSession.joinCode).emit("host-disconnected");
-      }
-    } catch (error) {
-      console.error("disconnect error:", error);
-    }
-  });
-});
+registerSocketHandlers(io);
 
 // ── Start ──
 const PORT = process.env.PORT || 4000;
@@ -236,4 +133,9 @@ async function start() {
   });
 }
 
-start();
+// Export for test suites
+export { app, server };
+
+if (process.env.NODE_ENV !== "test") {
+  start();
+}

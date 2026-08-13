@@ -1,0 +1,2047 @@
+# SENTIO — PRODUCT RECONSTRUCTION & IMPLEMENTATION MASTER PLAN
+
+## VERSION
+
+Version: 3.0
+Status: Master Implementation Specification
+Purpose: Product reconstruction, UX definition, architecture alignment, implementation planning, and AI-agent handover.
+
+---
+
+# 0. CRITICAL INSTRUCTION
+
+You are NOT being asked to simply redesign the existing Sentio UI.
+
+You are NOT being asked to blindly refactor the current modules.
+
+You are NOT being asked to complete the old 20-module workplan.
+
+The existing implementation may contain incorrect assumptions, incomplete features, poor UX, or architecture that does not match the actual product vision.
+
+Your first responsibility is to understand the intended product precisely.
+
+Your second responsibility is to compare the intended product against the current codebase.
+
+Your third responsibility is to produce a precise implementation plan.
+
+Only after the plan is complete should major implementation begin.
+
+The final product must be judged by the quality of the complete user experience, not by the number of modules marked "completed."
+
+---
+
+# 1. PRODUCT DEFINITION
+
+## 1.1 What is Sentio?
+
+Sentio is an AI-powered interactive live presentation platform.
+
+A presenter creates a presentation containing multiple slides.
+
+Slides can contain:
+
+* Information
+* Polls
+* Quizzes
+* Ratings
+* Word clouds
+* Open text
+* Q&A
+* Images
+* Other interactive elements
+
+During a live presentation:
+
+Presenter
+↓
+Starts session
+↓
+Audience joins using QR/code
+↓
+Audience waits
+↓
+Presenter starts
+↓
+Interactive slide becomes active
+↓
+Audience responds
+↓
+Presenter sees live participation
+↓
+Results are revealed
+↓
+Quiz scores are calculated
+↓
+Leaderboard appears
+↓
+AI analyzes audience interaction
+↓
+AI gives presenter recommendations
+↓
+Presenter decides what to do
+↓
+Next slide
+↓
+Session analytics
+↓
+AI insights
+↓
+Report
+
+This is the core Sentio experience.
+
+---
+
+# 2. PRODUCT POSITIONING
+
+Sentio should feel like a combination of:
+
+* Interactive presentation software
+* Mentimeter-style live interaction
+* Kahoot-style competitive quizzes
+* AI-powered presentation assistant
+
+But Sentio must have its own identity.
+
+The product should NOT feel like a clone.
+
+The unique differentiator is:
+
+> Sentio understands what the audience is doing during a presentation and helps the presenter make better decisions in real time.
+
+---
+
+# 3. PRODUCT PRINCIPLE
+
+The core product loop is:
+
+### Presenter creates
+
+↓
+
+### Audience interacts
+
+↓
+
+### Sentio collects real-time signals
+
+↓
+
+### Sentio analyzes the audience
+
+↓
+
+### AI produces contextual insight
+
+↓
+
+### Presenter decides
+
+↓
+
+### Presentation continues
+
+AI assists the presenter.
+
+AI does not replace the presenter.
+
+---
+
+# 4. PRIMARY ACCEPTANCE SCENARIO
+
+This scenario is the most important test of the entire application.
+
+A new user:
+
+1. Signs up.
+2. Verifies email.
+3. Logs in.
+4. Reaches Dashboard.
+5. Creates a presentation.
+6. Adds a Welcome slide.
+7. Adds 10 MCQ quiz slides.
+8. Adds one Poll slide.
+9. Configures quiz timers.
+10. Configures scoring.
+11. Configures leaderboard visibility.
+12. Uses AI to generate answer options.
+13. Reviews and edits AI suggestions.
+14. Saves presentation.
+15. Previews presentation.
+16. Starts a live session.
+17. Sees QR code and session code.
+18. Participants scan/join.
+19. Participants enter their names.
+20. Presenter sees live participant count.
+21. Presenter starts presentation.
+22. Question 1 appears.
+23. Participants answer.
+24. Presenter sees live answer count.
+25. Timer runs.
+26. Responses lock.
+27. Correct answer is revealed.
+28. Answer distribution appears.
+29. Top 5 leaderboard appears.
+30. Scores update.
+31. Next question starts.
+32. Process continues.
+33. Poll slide starts.
+34. Poll responses update live.
+35. AI analyzes audience behavior.
+36. AI provides a meaningful recommendation.
+37. Presenter decides whether to follow it.
+38. Presentation continues.
+39. Session ends.
+40. Analytics are generated.
+41. AI insights are generated.
+42. Report becomes available.
+
+If this workflow does not feel polished, Sentio is not complete.
+
+---
+
+# 5. FIRST TASK — FULL CODEBASE DISCOVERY
+
+Before modifying code, inspect the complete repository.
+
+Read:
+
+* package.json
+* workspace configuration
+* frontend application
+* backend application
+* shared packages
+* database models
+* services
+* API routes
+* Socket.IO handlers
+* authentication
+* authorization
+* AI services
+* analytics
+* reports
+* files
+* notifications
+* admin
+* deployment configuration
+
+Read all existing project documentation.
+
+At minimum:
+
+* docs/PROJECT_CONTEXT.md
+* docs/PROJECT_OVERVIEW.md
+* docs/DEVELOPMENT_WORKPLAN.md
+* docs/DEVELOPMENT_LOG.md
+* any existing architecture documentation
+* any existing AI documentation
+* any existing realtime documentation
+
+Do not assume documentation is accurate.
+
+Verify important claims against the actual code.
+
+---
+
+# 6. CURRENT-STATE AUDIT
+
+Create a detailed current-state audit.
+
+For every major subsystem determine:
+
+### KEEP
+
+Working and aligned with the product.
+
+### IMPROVE
+
+Correct direction but poor implementation/UX.
+
+### REFACTOR
+
+Correct functionality but architecture needs restructuring.
+
+### REPLACE
+
+Implementation fundamentally conflicts with the intended product.
+
+### REMOVE
+
+Unnecessary functionality.
+
+### MISSING
+
+Required functionality that does not exist.
+
+Do not classify something based only on file names.
+
+Inspect actual behavior and dependencies.
+
+---
+
+# 7. PRODUCT GAP ANALYSIS
+
+Create a table for every major workflow:
+
+| Area | Current State | Desired State | Gap | Priority | Required Action |
+| ---- | ------------- | ------------- | --- | -------- | --------------- |
+
+Analyze at minimum:
+
+* Authentication
+* Dashboard
+* Presentation creation
+* Presentation builder
+* Slide editor
+* Preview
+* Live presenter
+* Projector/audience display
+* Participant join
+* Waiting room
+* Quiz
+* Scoring
+* Leaderboard
+* Poll
+* Other interactions
+* Analytics
+* AI generation
+* Live AI analysis
+* Reports
+* Files
+* Notifications
+* Admin
+
+---
+
+# 8. SCREEN-BY-SCREEN PRODUCT SPECIFICATION
+
+This is mandatory.
+
+Do NOT start implementation until the major screens have been explicitly defined.
+
+For every screen document:
+
+1. Screen name
+2. User type
+3. Purpose
+4. Entry point
+5. Main UI regions
+6. Primary actions
+7. Secondary actions
+8. Data displayed
+9. API dependencies
+10. Socket dependencies
+11. Loading state
+12. Empty state
+13. Error state
+14. Success state
+15. Responsive behavior
+16. Navigation destination
+17. Security requirements
+
+---
+
+# 9. REQUIRED SCREEN SPECIFICATIONS
+
+At minimum define:
+
+## Public
+
+* Landing Page
+* Login
+* Signup
+* Email Verification
+* Password Reset
+
+## Presenter
+
+* Dashboard
+* Presentation List
+* Create Presentation
+* Presentation Settings
+* Presentation Builder
+* Slide Editor
+* Slide Preview
+* Presentation Preview
+* Session Setup
+* Waiting Room
+* Presenter Live Mode
+* Session Results
+* Analytics
+* Reports
+
+## Participant
+
+* Join Page
+* Name/Details Entry
+* Waiting Room
+* Active Question
+* Answer Submitted
+* Result
+* Leaderboard
+* Poll
+* Rating
+* Word Cloud
+* Open Text
+* Q&A
+* Session End
+
+## Projector/Audience
+
+Define whether the system has a separate projector/public display.
+
+If it does, specify:
+
+* Welcome screen
+* QR code
+* Session code
+* Current question
+* Timer
+* Response status
+* Results
+* Leaderboard
+* Poll results
+* AI-safe public information
+
+## Admin
+
+* Admin Dashboard
+* Users
+* Organizations
+* Sessions
+* AI Usage
+* System Health
+
+---
+
+# 10. PRESENTATION BUILDER SPECIFICATION
+
+The builder is one of the most important parts of Sentio.
+
+Define the target builder before implementation.
+
+Recommended conceptual structure:
+
+┌───────────────────────────────────────────────────┐
+│ SENTIO / Presentation / Preview / Present         │
+├──────────────┬───────────────────────┬────────────┤
+│              │                       │            │
+│ SLIDE        │     SLIDE CANVAS     │ SETTINGS   │
+│ NAVIGATOR    │                       │ PANEL      │
+│              │                       │            │
+│ 01 Welcome   │                       │ Slide Type │
+│ 02 Question  │                       │ Content    │
+│ 03 Question  │                       │ Timer      │
+│ 04 Poll      │                       │ Scoring    │
+│ ...          │                       │ Results    │
+│              │                       │ Leaderboard│
+│ + Add Slide  │                       │ AI         │
+│              │                       │            │
+└──────────────┴───────────────────────┴────────────┘
+
+This is a conceptual layout.
+
+Inspect the current application and determine the best implementation.
+
+The builder must make it obvious:
+
+Slide
+→ Content
+→ Interaction
+→ Configuration
+→ Live Behavior
+
+---
+
+# 11. SLIDE MANAGEMENT
+
+The presenter must be able to:
+
+* Add slide
+* Delete slide
+* Duplicate slide
+* Reorder slide
+* Rename slide where appropriate
+* Hide slide
+* Configure slide
+* Preview slide
+* Configure interaction
+* Save automatically or explicitly
+* Undo/redo if feasible
+* Start presentation
+
+Avoid unnecessary complexity.
+
+---
+
+# 12. SLIDE TYPES
+
+At minimum support:
+
+### Welcome
+
+Contains:
+
+* Title
+* Description
+* QR code
+* Session code during live mode
+
+### Information
+
+Static presentation content.
+
+### Quiz / MCQ
+
+Contains:
+
+* Question
+* Options
+* Correct answer
+* Explanation
+* Time limit
+* Scoring
+* Leaderboard settings
+* Result settings
+
+### Poll
+
+Contains:
+
+* Question
+* Options
+* Result configuration
+
+### Rating
+
+Contains:
+
+* Prompt
+* Scale
+* Result configuration
+
+### Word Cloud
+
+Contains:
+
+* Prompt
+* Response rules
+* Display settings
+
+### Open Text
+
+Contains:
+
+* Prompt
+* Moderation settings
+
+### Q&A
+
+Contains:
+
+* Question prompt
+* Moderation
+* Upvotes
+* Presenter controls
+
+### Leaderboard
+
+Displays rankings.
+
+---
+
+# 13. QUIZ BUILDER EXPERIENCE
+
+Quiz creation must be extremely simple.
+
+Presenter should be able to:
+
+1. Add question.
+2. Enter options.
+3. Select correct answer.
+4. Set timer.
+5. Set scoring.
+6. Configure leaderboard.
+7. Configure result reveal.
+8. Preview.
+
+AI assistance should be available but never mandatory.
+
+---
+
+# 14. AI QUIZ CREATION
+
+Support:
+
+"Generate 10 MCQs about JavaScript asynchronous programming."
+
+AI should return structured data.
+
+Each generated question should include:
+
+* Question
+* Options
+* Correct answer
+* Explanation
+* Difficulty
+* Suggested timer
+
+Presenter must review the generated content.
+
+Actions:
+
+* Accept
+* Edit
+* Regenerate
+* Reject
+
+Never automatically publish AI-generated content.
+
+---
+
+# 15. LIVE SESSION ARCHITECTURE
+
+Define the exact state machine.
+
+Example:
+
+WAITING
+
+↓
+
+STARTED
+
+↓
+
+SLIDE_ACTIVE
+
+↓
+
+INTERACTION_ACTIVE
+
+↓
+
+RESPONSES_COLLECTING
+
+↓
+
+RESPONSES_LOCKED
+
+↓
+
+RESULT_REVEALED
+
+↓
+
+LEADERBOARD
+
+↓
+
+NEXT_SLIDE
+
+↓
+
+ENDED
+
+This is conceptual.
+
+Analyze the existing implementation and create the smallest correct state machine.
+
+Every transition must define:
+
+* Who can trigger it
+* Preconditions
+* Database update
+* Socket event
+* Frontend behavior
+* Invalid transition behavior
+
+---
+
+# 16. LIVE QUIZ STATE
+
+For every quiz question define:
+
+### Before start
+
+Participants see:
+
+"Waiting for presenter..."
+
+### Active
+
+Participants see:
+
+Question
+
+Options
+
+Timer
+
+### Answer submitted
+
+Participant sees:
+
+"Answer submitted"
+
+### Locked
+
+Participant cannot submit.
+
+### Reveal
+
+Participant sees:
+
+Correct answer/result according to configuration.
+
+### Leaderboard
+
+Top performers appear.
+
+This must be implemented as explicit states.
+
+---
+
+# 17. SERVER AUTHORITY
+
+The backend must be authoritative for:
+
+* Current slide
+* Session state
+* Timer/deadline
+* Response lock
+* Correct answer
+* Score
+* Leaderboard
+* Result visibility
+
+Never trust the participant client for scoring.
+
+Never trust the presenter client for authorization.
+
+---
+
+# 18. TIME-BASED SCORING
+
+Define the exact scoring algorithm.
+
+Requirements:
+
+* Correct answer required
+* Faster correct answers receive higher scores
+* Incorrect answers receive zero or configured penalty
+* Timeout receives zero
+* Score is deterministic
+* Score is calculated server-side
+* Score is testable
+
+Document:
+
+* Formula
+* Inputs
+* Boundaries
+* Rounding
+* Minimum/maximum score
+* Tie handling
+
+Do not implement an undocumented scoring algorithm.
+
+---
+
+# 19. LEADERBOARD SPECIFICATION
+
+Define:
+
+When leaderboard appears.
+
+Who can see it.
+
+How many users are shown.
+
+How ties are handled.
+
+What information is shown.
+
+Example:
+
+TOP 5
+
+1. Sonet — 9,850
+2. Rahul — 9,600
+3. Anu — 9,420
+4. Vishnu — 9,100
+5. Meera — 8,900
+
+Participant identity should be represented only by permitted display names.
+
+---
+
+# 20. LIVE POLL SPECIFICATION
+
+Define:
+
+Poll starts.
+
+Participants vote.
+
+Results update.
+
+Presenter sees:
+
+* Response count
+* Percentages
+* Distribution
+
+Audience sees results according to configuration.
+
+Polls must not use quiz scoring.
+
+---
+
+# 21. PARTICIPANT EXPERIENCE SPECIFICATION
+
+Participant experience is mobile-first.
+
+The participant should never need to understand Sentio's internal architecture.
+
+Flow:
+
+JOIN
+
+↓
+
+NAME
+
+↓
+
+WAITING
+
+↓
+
+QUESTION
+
+↓
+
+ANSWER
+
+↓
+
+SUBMITTED
+
+↓
+
+RESULT
+
+↓
+
+LEADERBOARD
+
+↓
+
+NEXT
+
+Design each state independently.
+
+---
+
+# 22. PRESENTER EXPERIENCE SPECIFICATION
+
+Presenter live mode must prioritize:
+
+1. Current slide
+2. Audience response state
+3. Controls
+4. Results
+5. AI insight
+
+The presenter should immediately understand:
+
+* Where they are
+* What the audience is doing
+* What they can do next
+
+No unnecessary dashboard complexity during live presentation.
+
+---
+
+# 23. AI LIVE ANALYSIS
+
+Define exactly when AI runs.
+
+Do NOT send every interaction to Groq individually.
+
+Possible triggers:
+
+* Response threshold reached
+* Question completed
+* Poll completed
+* Significant engagement change
+* Multiple consecutive difficult questions
+* End of section
+
+AI input should contain aggregated context.
+
+Example:
+
+Current question:
+
+Question 4
+
+Participants:
+
+32
+
+Answered:
+
+30
+
+Correct:
+
+11
+
+Incorrect:
+
+19
+
+Most selected wrong option:
+
+B — 15 responses
+
+Average response time:
+
+16.2s
+
+Previous question accuracy:
+
+68%
+
+Current accuracy:
+
+37%
+
+AI then produces structured output:
+
+INSIGHT
+
+RECOMMENDATION
+
+EVIDENCE
+
+CONFIDENCE
+
+---
+
+# 24. AI OUTPUT CONTRACT
+
+AI responses must be structured.
+
+Example conceptual schema:
+
+{
+"type": "audience_confusion",
+"insight": "...",
+"recommendation": "...",
+"evidence": [],
+"confidence": 0.82
+}
+
+The actual schema must be determined by the implementation.
+
+Validate AI output server-side.
+
+Invalid AI output must not break the live session.
+
+---
+
+# 25. AI PRESENTER CONTROLS
+
+AI recommendations should support actions such as:
+
+* Continue
+* Explain More
+* Ask AI
+* Ignore
+* Dismiss
+
+Future adaptive actions may include:
+
+* Insert generated poll
+* Generate follow-up question
+* Adjust difficulty
+
+But these should require presenter approval.
+
+---
+
+# 26. REAL-TIME SYSTEM SPECIFICATION
+
+Document every important Socket.IO event.
+
+For each event define:
+
+* Event name
+* Sender
+* Receiver
+* Payload
+* Authorization
+* Database effect
+* UI effect
+* Failure behavior
+
+At minimum cover:
+
+* Session join
+* Participant presence
+* Session start
+* Slide change
+* Timer
+* Interaction submission
+* Response progress
+* Response lock
+* Result reveal
+* Leaderboard
+* Poll update
+* Q&A
+* Reconnection
+* AI insight
+
+---
+
+# 27. DATABASE DESIGN REVIEW
+
+Do NOT automatically replace existing models.
+
+Analyze:
+
+Presentation
+
+Slide
+
+Session
+
+Interaction
+
+Participant
+
+Analytics
+
+Report
+
+File
+
+Notification
+
+AI logs
+
+Organization
+
+Then determine:
+
+* Keep
+* Extend
+* Refactor
+* Replace
+
+Preserve existing data where possible.
+
+---
+
+# 28. FRONTEND ARCHITECTURE REVIEW
+
+Analyze:
+
+* Routing
+* Components
+* State management
+* Hooks
+* API layer
+* Socket layer
+* UI components
+* Forms
+* Loading states
+* Error handling
+
+Identify duplicate or conflicting implementations.
+
+Create a clean target architecture.
+
+---
+
+# 29. BACKEND ARCHITECTURE REVIEW
+
+Analyze:
+
+* Routes
+* Controllers
+* Services
+* Models
+* Middleware
+* Socket handlers
+* AI services
+* Analytics
+* Storage
+* Notifications
+
+Avoid business logic inside routes.
+
+Avoid duplicated services.
+
+---
+
+# 30. DOCUMENTATION ARCHITECTURE
+
+The project MUST maintain these files:
+
+docs/
+├── PROJECT_OVERVIEW.md
+├── PROJECT_CONTEXT.md
+├── PRODUCT_WORKFLOW.md
+├── SCREEN_SPECIFICATION.md
+├── DEVELOPMENT_WORKPLAN.md
+├── DEVELOPMENT_LOG.md
+├── ARCHITECTURE.md
+├── REALTIME_SYSTEM.md
+├── AI_SYSTEM.md
+├── DATABASE_SCHEMA.md
+├── API_REFERENCE.md
+└── DESIGN_SYSTEM.md
+
+Root:
+
+IMPLEMENTATION_PLAN.txt
+
+---
+
+# 31. DOCUMENT RESPONSIBILITIES
+
+## PROJECT_OVERVIEW.md
+
+Stable product definition.
+
+Contains:
+
+* Vision
+* Purpose
+* Target users
+* Main features
+* Technology
+* High-level architecture
+
+---
+
+## PROJECT_CONTEXT.md
+
+AI handover/current-state file.
+
+Must contain:
+
+* Current project status
+* Current phase
+* Current task
+* Completed work
+* Pending work
+* Current architecture
+* Current workflow
+* Important decisions
+* Known problems
+* Technical debt
+* Next recommended task
+
+This file must always reflect reality.
+
+---
+
+## PRODUCT_WORKFLOW.md
+
+Complete user journey.
+
+Document:
+
+Signup
+→ Login
+→ Dashboard
+→ Create
+→ Build
+→ Preview
+→ Start
+→ Join
+→ Present
+→ Interact
+→ Results
+→ Leaderboard
+→ AI
+→ Analytics
+→ Report
+
+---
+
+## SCREEN_SPECIFICATION.md
+
+Screen-by-screen product specification.
+
+For every screen:
+
+* Purpose
+* Layout
+* Components
+* Data
+* Actions
+* States
+* API
+* Socket
+* Responsive behavior
+
+This becomes the UI source of truth.
+
+---
+
+## DEVELOPMENT_WORKPLAN.md
+
+Living implementation tracker.
+
+Every task must contain:
+
+Status
+
+Priority
+
+Dependencies
+
+Acceptance criteria
+
+Affected files
+
+Progress
+
+Blockers
+
+Next step
+
+Use:
+
+[ ] NOT STARTED
+
+[-] IN PROGRESS
+
+[x] COMPLETED
+
+[~] REFACTOR REQUIRED
+
+[!] BLOCKED
+
+---
+
+## DEVELOPMENT_LOG.md
+
+Historical record.
+
+Never rewrite history.
+
+Append:
+
+Date
+
+Task
+
+Changes
+
+Files
+
+Tests
+
+Problems
+
+Decisions
+
+Next task
+
+---
+
+## ARCHITECTURE.md
+
+Current architecture.
+
+---
+
+## REALTIME_SYSTEM.md
+
+Socket.IO and session state architecture.
+
+---
+
+## AI_SYSTEM.md
+
+AI architecture and contracts.
+
+---
+
+## DATABASE_SCHEMA.md
+
+Current database models and relationships.
+
+---
+
+## API_REFERENCE.md
+
+Current API contracts.
+
+---
+
+## DESIGN_SYSTEM.md
+
+Visual and interaction system.
+
+---
+
+# 32. IMPLEMENTATION_PLAN.txt
+
+This is the MASTER execution document.
+
+It must contain:
+
+## PART A — PRODUCT
+
+1. Product vision
+2. Target users
+3. Product principles
+4. Core workflow
+5. Primary acceptance scenario
+
+## PART B — CURRENT STATE
+
+6. Current architecture
+7. Current UX audit
+8. Current module audit
+9. Current technical debt
+10. Existing reusable infrastructure
+
+## PART C — TARGET EXPERIENCE
+
+11. Screen map
+12. Screen specifications
+13. Presenter experience
+14. Participant experience
+15. Projector experience
+16. Builder experience
+
+## PART D — INTERACTION ENGINE
+
+17. Slide architecture
+18. Quiz architecture
+19. Poll architecture
+20. Interaction state machine
+21. Scoring
+22. Leaderboard
+
+## PART E — REALTIME
+
+23. Session state
+24. Socket architecture
+25. Event contracts
+26. Synchronization
+27. Reconnection
+
+## PART F — AI
+
+28. AI generation
+29. AI context
+30. AI live analysis
+31. AI output contracts
+32. AI presenter recommendations
+33. AI failure handling
+
+## PART G — TECHNICAL
+
+34. Frontend architecture
+35. Backend architecture
+36. Database
+37. API
+38. Storage
+39. Authentication
+40. Authorization
+
+## PART H — QUALITY
+
+41. Security
+42. Performance
+43. Testing
+44. Accessibility
+45. Responsive design
+
+## PART I — DEPLOYMENT
+
+46. Vercel
+47. Render
+48. MongoDB Atlas
+49. Azure
+50. Groq
+51. Resend
+
+## PART J — IMPLEMENTATION
+
+52. Phase roadmap
+53. Dependencies
+54. Migration plan
+55. Risks
+56. Milestones
+57. Definition of Done
+
+---
+
+# 33. IMPLEMENTATION PHASES
+
+Do not organize development primarily by the old 20 modules.
+
+Use product phases.
+
+---
+
+## PHASE 0 — DISCOVERY
+
+No major code changes.
+
+Deliver:
+
+* Codebase audit
+* Current architecture
+* Current UX audit
+* Product gap analysis
+* Dependency map
+
+---
+
+## PHASE 1 — PRODUCT SPECIFICATION
+
+Deliver:
+
+* Screen map
+* Screen specifications
+* Product workflow
+* Interaction state definitions
+* Quiz scoring specification
+* Leaderboard specification
+* AI behavior specification
+
+---
+
+## PHASE 2 — ARCHITECTURE ALIGNMENT
+
+Deliver:
+
+* Database decisions
+* API decisions
+* Socket decisions
+* Frontend architecture
+* Backend architecture
+* Migration strategy
+
+---
+
+## PHASE 3 — PRESENTATION BUILDER
+
+Implement:
+
+* Presentation creation
+* Slide navigation
+* Slide editor
+* Interactive slide configuration
+* Quiz configuration
+* Poll configuration
+* Preview
+* AI assistance
+
+---
+
+## PHASE 4 — LIVE PRESENTATION ENGINE
+
+Implement:
+
+* Session creation
+* QR code
+* Session code
+* Participant join
+* Waiting room
+* Presenter controls
+* Slide synchronization
+* Timer
+* Response locking
+
+---
+
+## PHASE 5 — QUIZ ENGINE
+
+Implement:
+
+* Question activation
+* Answer submission
+* Time-based scoring
+* Correct answer reveal
+* Result distribution
+* Leaderboard
+* Top 3/5/10 configuration
+
+---
+
+## PHASE 6 — POLL & INTERACTION ENGINE
+
+Implement and verify:
+
+* Poll
+* Rating
+* Word cloud
+* Open text
+* Q&A
+* Reactions
+* Moderation
+
+---
+
+## PHASE 7 — PARTICIPANT EXPERIENCE
+
+Polish:
+
+* Mobile UI
+* Answering
+* Submission state
+* Results
+* Leaderboard
+* Reconnection
+* Error states
+
+---
+
+## PHASE 8 — PRESENTER EXPERIENCE
+
+Polish:
+
+* Live control panel
+* Audience status
+* Results
+* Leaderboard
+* AI assistant
+* Navigation
+* Session controls
+
+---
+
+## PHASE 9 — LIVE AI INTELLIGENCE
+
+Implement:
+
+* Context builder
+* Aggregated audience analysis
+* AI triggers
+* Structured AI output
+* Presenter recommendations
+* AI failure handling
+* Rate limiting
+* Caching
+
+---
+
+## PHASE 10 — ANALYTICS & REPORTS
+
+Implement/verify:
+
+* Session analytics
+* Participation
+* Quiz performance
+* Engagement
+* Timeline
+* AI insights
+* Reports
+
+---
+
+## PHASE 11 — SUPPORTING SYSTEMS
+
+Verify:
+
+* Files
+* Knowledge base
+* Notifications
+* Administration
+* Organizations
+
+---
+
+## PHASE 12 — HARDENING
+
+Implement:
+
+* Security
+* Performance
+* Testing
+* Accessibility
+* Responsive verification
+* Deployment verification
+
+---
+
+# 34. SCREEN ACCEPTANCE TESTING
+
+Every major screen must have acceptance criteria.
+
+Example:
+
+## Presentation Builder
+
+Must answer "yes" to:
+
+* Can a user understand the layout immediately?
+* Can a slide be added in one obvious action?
+* Can a quiz be configured without confusion?
+* Is the active slide obvious?
+* Is unsaved state clear?
+* Can the presenter preview?
+* Can AI assistance be discovered without being intrusive?
+* Does the builder work on supported screen sizes?
+
+---
+
+# 35. LIVE QUIZ ACCEPTANCE TEST
+
+Test:
+
+Presenter starts question.
+
+↓
+
+Participants receive same question.
+
+↓
+
+Timer is synchronized.
+
+↓
+
+Participants answer.
+
+↓
+
+Presenter sees live count.
+
+↓
+
+Participant cannot submit twice.
+
+↓
+
+Timer expires.
+
+↓
+
+Responses lock.
+
+↓
+
+Server calculates scores.
+
+↓
+
+Correct answer is revealed.
+
+↓
+
+Answer distribution appears.
+
+↓
+
+Leaderboard appears.
+
+↓
+
+Participants receive result.
+
+↓
+
+Next question synchronizes.
+
+No race conditions should exist.
+
+---
+
+# 36. LIVE POLL ACCEPTANCE TEST
+
+Presenter starts poll.
+
+↓
+
+Participants receive poll.
+
+↓
+
+Participants vote.
+
+↓
+
+Results update in real time.
+
+↓
+
+Presenter sees response count.
+
+↓
+
+Audience sees results according to configuration.
+
+↓
+
+Presenter advances.
+
+No quiz scoring is applied.
+
+---
+
+# 37. AI ACCEPTANCE TEST
+
+Given:
+
+32 participants
+
+30 answers
+
+11 correct
+
+19 incorrect
+
+62% selected one wrong answer
+
+Average response time increased
+
+AI should produce a useful structured recommendation.
+
+The AI response must:
+
+* Use actual data
+* Not invent statistics
+* Be relevant to the current slide
+* Be concise
+* Be actionable
+* Not control the presentation automatically
+
+---
+
+# 38. RESPONSIVE ACCEPTANCE
+
+Verify:
+
+375px
+
+768px
+
+1024px
+
+1440px+
+
+Participant:
+
+Mobile-first.
+
+Presenter:
+
+Desktop-first.
+
+Builder:
+
+Desktop/tablet.
+
+---
+
+# 39. VISUAL QUALITY GATE
+
+A UI change is NOT considered successful merely because:
+
+* Tailwind classes changed
+* Colors changed
+* Animations were added
+* Components were reorganized
+
+The redesigned UI must improve:
+
+* Information hierarchy
+* Discoverability
+* Clarity
+* Speed
+* Feedback
+* Consistency
+* Accessibility
+* Responsiveness
+
+Avoid:
+
+* Excessive gradients
+* Excessive glassmorphism
+* Unnecessary 3D
+* Distracting animations
+* Tiny controls
+* Overloaded dashboards
+* Decorative UI that competes with presentation content
+
+---
+
+# 40. DO NOT OVER-ENGINEER
+
+Do not introduce technologies merely because they are popular.
+
+Do not introduce:
+
+* New databases
+* New queues
+* New state management libraries
+* New AI providers
+* New realtime systems
+
+unless the current architecture demonstrably requires them.
+
+Reuse existing infrastructure.
+
+---
+
+# 41. DATA MIGRATION RULE
+
+If architecture changes are required:
+
+1. Identify affected data.
+2. Identify consumers.
+3. Define migration.
+4. Preserve existing data.
+5. Test migration.
+6. Document migration.
+
+Never perform destructive schema replacement blindly.
+
+---
+
+# 42. DEPLOYMENT REQUIREMENTS
+
+Target:
+
+Frontend → Vercel
+
+Backend → Render
+
+Database → MongoDB Atlas
+
+Storage → Azure Blob Storage
+
+AI → Groq
+
+Email → Resend
+
+Realtime → Socket.IO
+
+No persistent local filesystem assumptions.
+
+No hardcoded credentials.
+
+No hardcoded production URLs.
+
+No client-side secrets.
+
+---
+
+# 43. DOCUMENTATION UPDATE WORKFLOW
+
+After EVERY meaningful implementation task:
+
+1. Update DEVELOPMENT_WORKPLAN.md.
+2. Append DEVELOPMENT_LOG.md.
+3. Update PROJECT_CONTEXT.md.
+4. Update affected architecture documentation.
+5. Update PRODUCT_WORKFLOW.md if user flow changed.
+6. Update SCREEN_SPECIFICATION.md if UI changed.
+7. Update API_REFERENCE.md if API changed.
+8. Update REALTIME_SYSTEM.md if Socket.IO changed.
+9. Update AI_SYSTEM.md if AI behavior changed.
+10. Update DATABASE_SCHEMA.md if models changed.
+
+Documentation is part of the implementation.
+
+It is not optional cleanup work.
+
+---
+
+# 44. AI AGENT HANDOVER RULE
+
+At the end of every development task, PROJECT_CONTEXT.md must clearly state:
+
+CURRENT PHASE:
+
+CURRENT TASK:
+
+LAST COMPLETED TASK:
+
+FILES CHANGED:
+
+DATABASE CHANGES:
+
+API CHANGES:
+
+SOCKET CHANGES:
+
+AI CHANGES:
+
+UI CHANGES:
+
+TESTS:
+
+KNOWN ISSUES:
+
+NEXT TASK:
+
+RISKS:
+
+A new AI agent must be able to continue without asking:
+
+"What has already been done?"
+
+---
+
+# 45. DO NOT MARK MODULES COMPLETE PREMATURELY
+
+A module/feature can only be marked:
+
+[x] COMPLETED
+
+when:
+
+* Implementation exists
+* UX is verified
+* Backend is verified
+* Database is verified
+* Realtime is verified where applicable
+* Security is verified
+* Tests pass
+* Primary workflow works
+* Documentation is updated
+
+Otherwise use:
+
+[-] IN PROGRESS
+
+or
+
+[~] REFACTOR REQUIRED
+
+---
+
+# 46. FINAL DELIVERABLE FROM THE ANALYSIS PHASE
+
+Before major implementation, create/update:
+
+IMPLEMENTATION_PLAN.txt
+
+docs/PROJECT_OVERVIEW.md
+
+docs/PROJECT_CONTEXT.md
+
+docs/PRODUCT_WORKFLOW.md
+
+docs/SCREEN_SPECIFICATION.md
+
+docs/DEVELOPMENT_WORKPLAN.md
+
+docs/DEVELOPMENT_LOG.md
+
+docs/ARCHITECTURE.md
+
+docs/REALTIME_SYSTEM.md
+
+docs/AI_SYSTEM.md
+
+docs/DATABASE_SCHEMA.md
+
+docs/API_REFERENCE.md
+
+docs/DESIGN_SYSTEM.md
+
+These files must describe the SAME system.
+
+No contradictions.
+
+---
+
+# 47. FINAL IMPLEMENTATION RULE
+
+Do not optimize for:
+
+"How many modules are complete?"
+
+Optimize for:
+
+"How good is the complete Sentio experience?"
+
+The final product should allow a presenter to go from:
+
+SIGN UP
+
+→ LOGIN
+
+→ DASHBOARD
+
+→ CREATE
+
+→ BUILD
+
+→ AI ASSIST
+
+→ PREVIEW
+
+→ START
+
+→ QR JOIN
+
+→ AUDIENCE
+
+→ QUIZ
+
+→ LIVE RESPONSES
+
+→ REVEAL
+
+→ SCORE
+
+→ LEADERBOARD
+
+→ AI INSIGHT
+
+→ POLL
+
+→ ANALYSIS
+
+→ REPORT
+
+without the user feeling that they are moving between unrelated systems.
+
+---
+
+# 48. FINAL PRINCIPLE
+
+Sentio is not primarily:
+
+a slide editor,
+
+a quiz application,
+
+an analytics dashboard,
+
+or an AI chatbot.
+
+Sentio is:
+
+## AN INTELLIGENT LIVE PRESENTATION EXPERIENCE
+
+The presentation is the backbone.
+
+The audience interaction is the heartbeat.
+
+The realtime engine is the nervous system.
+
+Analytics are the measurement layer.
+
+AI is the intelligence layer.
+
+The presenter remains in control.
+
+Every architectural and UI decision must reinforce this model.

@@ -12,6 +12,7 @@ import { SlideEditor } from "@/components/builder/SlideEditor";
 import { SlideConfiguration } from "@/components/builder/SlideConfiguration";
 import { AddSlideModal } from "@/components/builder/AddSlideModal";
 import { ThemeSettings } from "@/components/builder/ThemeSettings";
+import AIAssistant from "@/components/ai/AIAssistant";
 
 interface PresentationData {
   title: string;
@@ -29,6 +30,7 @@ export default function PresentationBuilder() {
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
+  const [isAIOpen, setIsAIOpen] = useState(false);
 
   const [initialData, setInitialData] = useState<PresentationData>({
     title: "",
@@ -124,6 +126,45 @@ export default function PresentationBuilder() {
       }
     } catch (error) {
       console.error("Failed to add slide:", error);
+    }
+  };
+
+  const handleAddGeneratedSlides = async (generatedSlides: any[]) => {
+    if (!Array.isArray(generatedSlides)) return;
+    const token = getAccessToken();
+    if (!token) return;
+
+    try {
+      const addedSlides: any[] = [];
+      let currentOrder = slides.length;
+      for (const gs of generatedSlides) {
+        const res = await fetch(
+          `${API_URL}/api/presentations/${presentationId}/slides`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              type: gs.type,
+              title: gs.title,
+              description: gs.description,
+              config: gs.config,
+              order: currentOrder,
+            }),
+          },
+        );
+        if (res.ok) {
+          addedSlides.push(await res.json());
+          currentOrder++;
+        }
+      }
+      setSlides((prev) => [...prev, ...addedSlides]);
+      if (addedSlides.length > 0)
+        setActiveSlideId(addedSlides[addedSlides.length - 1]._id);
+    } catch (error) {
+      console.error("Failed to add generated slides:", error);
     }
   };
 
@@ -258,6 +299,20 @@ export default function PresentationBuilder() {
           </div>
 
           <button
+            onClick={() => setIsAIOpen(!isAIOpen)}
+            className={`p-2 rounded-md transition-colors ${
+              isAIOpen
+                ? "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
+                : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+            }`}
+            title="Sentio AI"
+          >
+            <span className="text-lg leading-none flex items-center justify-center">
+              ✨
+            </span>
+          </button>
+
+          <button
             onClick={() => setIsThemeModalOpen(true)}
             className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-gray-800 rounded-md transition-colors"
             title="Settings"
@@ -291,6 +346,15 @@ export default function PresentationBuilder() {
           slide={activeSlide}
           onUpdateLocal={handleUpdateLocalSlide}
         />
+
+        {isAIOpen && (
+          <div className="w-80 shrink-0 border-l border-gray-200 dark:border-gray-800">
+            <AIAssistant
+              presentationId={presentationId}
+              onAddSlides={handleAddGeneratedSlides}
+            />
+          </div>
+        )}
       </div>
 
       <AddSlideModal

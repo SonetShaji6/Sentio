@@ -37,3 +37,4 @@ export interface ApiError {
     }[];
 }
 export * from "./events/socket.events";
+export * from "./interactions";

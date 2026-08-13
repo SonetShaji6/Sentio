@@ -1,3 +1,7 @@
+/**
+ * @deprecated This model is deprecated in favor of the AI-Adaptive `Experience.ts` model.
+ * Do not use for new features. This will be removed in Phase J.
+ */
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IPresentationVersion {
@@ -83,8 +87,6 @@ const PresentationSchema = new Schema<IPresentation>(
 
 // Indexes for common queries
 PresentationSchema.index({ owner: 1, isDeleted: 1, updatedAt: -1 });
-PresentationSchema.index({ shareId: 1 });
-PresentationSchema.index({ sessionCode: 1 });
 
 export default mongoose.model<IPresentation>(
   "Presentation",

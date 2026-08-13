@@ -6,16 +6,20 @@ export interface IParticipant {
   joinedAt: Date;
   isOnline: boolean;
   score: number; // For leaderboard
-  responses: any[]; // Store their answers
+  responses: any[]; // Legacy — keep for backward compat
 }
 
 export interface ISession extends Document {
-  presentationId: mongoose.Types.ObjectId;
+  experienceId: mongoose.Types.ObjectId; // Refers to the new Experience model
   status: "waiting" | "live" | "paused" | "ended";
-  currentSlideIndex: number;
+  currentConceptId?: string; // Replaces currentSlideIndex
+  currentChallengeId?: mongoose.Types.ObjectId; // The active challenge
   joinCode: string;
   hostSocketId?: string;
   participants: IParticipant[];
+  responseLocked: boolean;
+  slideResponseLocks: Map<string, boolean>;
+  reactionCounts: any; // { slideId: { emoji: count } }
   startedAt?: Date;
   endedAt?: Date;
   createdAt: Date;
@@ -29,16 +33,16 @@ const ParticipantSchema = new Schema<IParticipant>(
     joinedAt: { type: Date, default: Date.now },
     isOnline: { type: Boolean, default: true },
     score: { type: Number, default: 0 },
-    responses: { type: Array, default: [] },
+    responses: { type: Schema.Types.Mixed, default: [] },
   },
   { _id: false },
 );
 
 const SessionSchema = new Schema<ISession>(
   {
-    presentationId: {
+    experienceId: {
       type: Schema.Types.ObjectId,
-      ref: "Presentation",
+      ref: "Experience",
       required: true,
       index: true,
     },
@@ -47,17 +51,26 @@ const SessionSchema = new Schema<ISession>(
       enum: ["waiting", "live", "paused", "ended"],
       default: "waiting",
     },
-    currentSlideIndex: { type: Number, default: 0 },
+    currentConceptId: { type: String },
+    currentChallengeId: { type: Schema.Types.ObjectId, ref: "Challenge" },
     joinCode: { type: String, required: true, unique: true, index: true },
     hostSocketId: { type: String },
     participants: [ParticipantSchema],
+    responseLocked: { type: Boolean, default: false },
+    slideResponseLocks: {
+      type: Map,
+      of: Boolean,
+      default: new Map(),
+    },
+    reactionCounts: { type: Schema.Types.Mixed, default: {} },
     startedAt: { type: Date },
     endedAt: { type: Date },
   },
   { timestamps: true },
 );
 
-// Optional: Index on status for active sessions query
+// Indexes for fast querying
 SessionSchema.index({ status: 1 });
+SessionSchema.index({ experienceId: 1, status: 1 });
 
 export default mongoose.model<ISession>("Session", SessionSchema);

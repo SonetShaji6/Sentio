@@ -75,4 +75,72 @@ router.post(
   },
 );
 
+// Clear all read notifications
+router.delete(
+  "/clear-read",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      await Notification.deleteMany({ user: userId, isRead: true });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Clear read notifications error:", error);
+      res.status(500).json({ error: "Failed to clear read notifications" });
+    }
+  },
+);
+
+// Get & Update Notification Preferences
+router.get(
+  "/preferences",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const User = (await import("../models/User")).default;
+      const user = await User.findById(req.user!.id).select("preferences");
+      res.json(
+        user?.preferences?.notifications || {
+          email: true,
+          push: true,
+          aiStatus: true,
+          reportReady: true,
+        },
+      );
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch preferences" });
+    }
+  },
+);
+
+router.patch(
+  "/preferences",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const User = (await import("../models/User")).default;
+      const user = await User.findById(req.user!.id);
+      if (!user) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+
+      user.preferences = {
+        ...user.preferences,
+        notifications: {
+          ...(user.preferences?.notifications || { email: true, push: true }),
+          ...req.body,
+        },
+      } as any;
+
+      await user.save();
+      res.json(user.preferences?.notifications || {});
+    } catch (error) {
+      res
+        .status(500)
+        .json({ error: "Failed to update notification preferences" });
+    }
+  },
+);
+
 export default router;

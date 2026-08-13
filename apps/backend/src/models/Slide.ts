@@ -1,3 +1,7 @@
+/**
+ * @deprecated This model is deprecated in favor of the AI-Adaptive `Challenge.ts` model.
+ * Do not use for new features. This will be removed in Phase J.
+ */
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface ISlide extends Document {

@@ -1,10 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useSocket } from "@/hooks/useSocket";
-import { ISlide } from "@/types/slide";
-import { Heart, Send, CheckCircle2, AlertCircle } from "lucide-react";
+import { SOCKET_EVENTS } from "@sentio/shared/src/events/socket.events";
+import { Heart, AlertCircle, MessageCircle, X } from "lucide-react";
+
+import { PollInteraction } from "@/components/interactions/PollInteraction";
+import { QuizInteraction } from "@/components/interactions/QuizInteraction";
+import { WordCloudInteraction } from "@/components/interactions/WordCloudInteraction";
+import { OpenTextInteraction } from "@/components/interactions/OpenTextInteraction";
+import { RatingInteraction } from "@/components/interactions/RatingInteraction";
+import { EmojiReactions } from "@/components/interactions/EmojiReactions";
+import { QnAPanel } from "@/components/interactions/QnAPanel";
+
+interface SlideData {
+  slideId: string;
+  type: string;
+  title: string;
+  description: string;
+  config: any;
+  responseLocked: boolean;
+}
+
+interface QnAQuestion {
+  id: string;
+  displayName: string;
+  questionText: string;
+  status: "pending" | "pinned" | "resolved" | "hidden";
+  upvotes: number;
+  createdAt: string;
+}
 
 export default function AudienceView() {
   const params = useParams();
@@ -20,66 +46,238 @@ export default function AudienceView() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const [session, setSession] = useState<any>(null);
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [currentSlide, setCurrentSlide] = useState<SlideData | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [responseLocked, setResponseLocked] = useState(false);
+
+  // Results state (for real-time updates)
+  const [pollResults, setPollResults] = useState<any>(null);
+  const [quizFeedback, setQuizFeedback] = useState<any>(null);
+  const [wordCloudResults, setWordCloudResults] = useState<any>(null);
+  const [ratingResults, setRatingResults] = useState<any>(null);
+  const [reactionCounts, setReactionCounts] = useState<Record<string, number>>(
+    {},
+  );
+
+  // Q&A
+  const [showQnA, setShowQnA] = useState(false);
+  const [qnaQuestions, setQnaQuestions] = useState<QnAQuestion[]>([]);
 
   const { isConnected, emit, subscribe } = useSocket();
+
+  // Track submitted slides to prevent re-submission on slide revisit
+  const [submittedSlides, setSubmittedSlides] = useState<Set<string>>(
+    new Set(),
+  );
 
   useEffect(() => {
     if (!isConnected) return;
 
     // Join the session
-    emit("join-session", { joinCode, displayName });
+    emit(SOCKET_EVENTS.JOIN_SESSION, { joinCode, displayName });
 
-    const unsubSuccess = subscribe("join-success", (data) => {
-      setSession(data.session);
-      setCurrentSlideIndex(data.session.currentSlideIndex || 0);
-      setConnectionState("joined");
-    });
+    const unsubs: (() => void)[] = [];
 
-    const unsubError = subscribe("join-error", (msg) => {
-      setErrorMessage(msg);
-      setConnectionState("error");
-    });
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.JOIN_SUCCESS, (data: any) => {
+        setSession(data.session);
+        setConnectionState("joined");
+      }),
+    );
 
-    const unsubStarted = subscribe("session-started", (data) => {
-      setSession(data.session);
-      setCurrentSlideIndex(0);
-      setHasSubmitted(false);
-    });
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.JOIN_ERROR, (msg: string) => {
+        setErrorMessage(msg);
+        setConnectionState("error");
+      }),
+    );
 
-    const unsubSlide = subscribe("slide-changed", (data) => {
-      setCurrentSlideIndex(data.slideIndex);
-      setHasSubmitted(false);
-    });
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.SESSION_STARTED, (data: any) => {
+        setSession(data.session);
+        resetSlideState();
+      }),
+    );
 
-    const unsubEnded = subscribe("session-ended", () => {
-      setSession((prev: any) => ({ ...prev, status: "ended" }));
-    });
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.SLIDE_CHANGED, () => {
+        // Slide data will come via SLIDE_DATA event
+      }),
+    );
 
-    const unsubPaused = subscribe("session-paused", () => {
-      setSession((prev: any) => ({ ...prev, status: "paused" }));
-    });
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.SLIDE_DATA, (data: SlideData) => {
+        setCurrentSlide(data);
+        setResponseLocked(data.responseLocked);
+        // Check if already submitted this slide
+        setHasSubmitted(submittedSlides.has(data.slideId));
+        // Reset results for new slide
+        setPollResults(null);
+        setQuizFeedback(null);
+        setWordCloudResults(null);
+        setRatingResults(null);
+        setReactionCounts({});
+      }),
+    );
 
-    const unsubResumed = subscribe("session-resumed", () => {
-      setSession((prev: any) => ({ ...prev, status: "live" }));
-    });
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.SESSION_ENDED, () => {
+        setSession((prev: any) => (prev ? { ...prev, status: "ended" } : prev));
+      }),
+    );
+
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.SESSION_PAUSED, () => {
+        setSession((prev: any) =>
+          prev ? { ...prev, status: "paused" } : prev,
+        );
+      }),
+    );
+
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.SESSION_RESUMED, () => {
+        setSession((prev: any) => (prev ? { ...prev, status: "live" } : prev));
+      }),
+    );
+
+    // Interaction results
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.POLL_UPDATE, (data: any) => {
+        setPollResults(data);
+      }),
+    );
+
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.INTERACTION_RESULT, (data: any) => {
+        if (data.type === "quiz" && data.isCorrect !== undefined) {
+          setQuizFeedback({
+            isCorrect: data.isCorrect,
+            scoreAwarded: data.scoreAwarded,
+          });
+        }
+      }),
+    );
+
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.WORDCLOUD_UPDATE, (data: any) => {
+        setWordCloudResults(data);
+      }),
+    );
+
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.RATING_UPDATE, (data: any) => {
+        setRatingResults(data);
+      }),
+    );
+
+    // Response lock events
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.RESPONSE_LOCK, (data: any) => {
+        if (!data.slideId || data.slideId === currentSlide?.slideId) {
+          setResponseLocked(true);
+        }
+      }),
+    );
+
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.RESPONSE_UNLOCK, (data: any) => {
+        if (!data.slideId || data.slideId === currentSlide?.slideId) {
+          setResponseLocked(false);
+        }
+      }),
+    );
+
+    // Reactions
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.REACTION_UPDATE, (data: any) => {
+        if (data.slideId === currentSlide?.slideId) {
+          setReactionCounts(data.counts || {});
+        }
+      }),
+    );
+
+    // Q&A
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.QNA_UPDATE, (data: any) => {
+        if (data.action === "new") {
+          setQnaQuestions((prev) => [data.question, ...prev]);
+        } else if (data.action === "moderated") {
+          setQnaQuestions((prev) =>
+            prev.map((q) => (q.id === data.question.id ? data.question : q)),
+          );
+        }
+      }),
+    );
+
+    // Interaction errors
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.INTERACTION_ERROR, (data: any) => {
+        // Show briefly — could enhance with toast
+        console.warn("Interaction error:", data.message);
+      }),
+    );
 
     return () => {
-      unsubSuccess();
-      unsubError();
-      unsubStarted();
-      unsubSlide();
-      unsubEnded();
-      unsubPaused();
-      unsubResumed();
+      unsubs.forEach((unsub) => unsub());
     };
-  }, [isConnected, emit, subscribe, joinCode, displayName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, joinCode, displayName]);
+
+  const resetSlideState = () => {
+    setCurrentSlide(null);
+    setHasSubmitted(false);
+    setPollResults(null);
+    setQuizFeedback(null);
+    setWordCloudResults(null);
+    setRatingResults(null);
+    setReactionCounts({});
+  };
+
+  // ── Submission Handlers ──
+
+  const handleInteractionSubmit = useCallback(
+    (type: string, payload: any) => {
+      if (!currentSlide) return;
+      emit(SOCKET_EVENTS.INTERACTION_SUBMIT, {
+        joinCode,
+        slideId: currentSlide.slideId,
+        type,
+        payload,
+      });
+      if (type !== "wordcloud") {
+        // Word cloud allows unlimited submissions
+        setHasSubmitted(true);
+        setSubmittedSlides((prev) => new Set(prev).add(currentSlide.slideId));
+      }
+    },
+    [currentSlide, emit, joinCode],
+  );
+
+  const handleReaction = useCallback(
+    (emoji: string) => {
+      if (!currentSlide) return;
+      emit(SOCKET_EVENTS.REACTION_SEND, {
+        joinCode,
+        slideId: currentSlide.slideId,
+        emoji,
+      });
+    },
+    [currentSlide, emit, joinCode],
+  );
+
+  const handleQnASubmit = useCallback(
+    (questionText: string) => {
+      emit(SOCKET_EVENTS.QNA_SUBMIT, { joinCode, questionText });
+    },
+    [emit, joinCode],
+  );
+
+  // ── Render States ──
 
   if (connectionState === "connecting") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 p-4">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mb-4"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mb-4" />
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
           Connecting to presentation...
         </h2>
@@ -114,7 +312,7 @@ export default function AudienceView() {
           <Heart className="w-10 h-10 text-blue-600 dark:text-blue-400 animate-pulse" />
         </div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          You're in, {displayName}!
+          You&apos;re in, {displayName}!
         </h1>
         <p className="text-xl text-gray-500 dark:text-gray-400">
           {session.status === "waiting"
@@ -125,17 +323,122 @@ export default function AudienceView() {
     );
   }
 
-  // Render active slide form
-  // For a real implementation, we would need the slide content.
-  // The host should ideally broadcast the current slide object, or we fetch it.
-  // Assuming the host broadcasts the full slide or we have simple interactions:
+  // ── Active Live Slide ──
 
-  const handleSubmit = (answer: any) => {
-    setHasSubmitted(true);
-    emit("audience-submit", {
-      joinCode,
-      response: { answer, timestamp: new Date() },
-    });
+  const renderInteraction = () => {
+    if (!currentSlide) {
+      return (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-500 dark:text-gray-400">
+            Waiting for presenter...
+          </p>
+        </div>
+      );
+    }
+
+    const { type, config } = currentSlide;
+    const isInteractive = [
+      "poll",
+      "quiz",
+      "wordcloud",
+      "opentext",
+      "rating",
+      "imagepoll",
+    ].includes(type);
+
+    if (!isInteractive) {
+      return (
+        <div className="text-center py-12">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            {currentSlide.title || "Listening..."}
+          </h2>
+          {currentSlide.description && (
+            <p className="text-gray-500 dark:text-gray-400 text-lg">
+              {currentSlide.description}
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="w-full">
+        {/* Slide title */}
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center">
+          {currentSlide.title || "Question"}
+        </h2>
+        {currentSlide.description && (
+          <p className="text-gray-500 dark:text-gray-400 text-center mb-8">
+            {currentSlide.description}
+          </p>
+        )}
+
+        {/* Interaction component */}
+        {(type === "poll" || type === "imagepoll") && (
+          <PollInteraction
+            slideId={currentSlide.slideId}
+            options={config?.options || []}
+            allowMultiple={config?.allowMultiple}
+            hasSubmitted={hasSubmitted}
+            responseLocked={responseLocked}
+            onSubmit={(selected) =>
+              handleInteractionSubmit("poll", { selectedOptions: selected })
+            }
+            results={pollResults}
+            showResults={true}
+          />
+        )}
+
+        {type === "quiz" && (
+          <QuizInteraction
+            slideId={currentSlide.slideId}
+            options={config?.options || []}
+            timer={config?.timer}
+            hasSubmitted={hasSubmitted}
+            responseLocked={responseLocked}
+            onSubmit={(selected, time) =>
+              handleInteractionSubmit("quiz", {
+                selectedOptions: selected,
+                responseTimeMs: time,
+              })
+            }
+            feedback={quizFeedback}
+          />
+        )}
+
+        {type === "wordcloud" && (
+          <WordCloudInteraction
+            slideId={currentSlide.slideId}
+            hasSubmitted={false}
+            responseLocked={responseLocked}
+            onSubmit={(word) => handleInteractionSubmit("wordcloud", { word })}
+            results={wordCloudResults}
+          />
+        )}
+
+        {type === "opentext" && (
+          <OpenTextInteraction
+            slideId={currentSlide.slideId}
+            charLimit={config?.charLimit || 500}
+            hasSubmitted={hasSubmitted}
+            responseLocked={responseLocked}
+            onSubmit={(text) => handleInteractionSubmit("opentext", { text })}
+          />
+        )}
+
+        {type === "rating" && (
+          <RatingInteraction
+            slideId={currentSlide.slideId}
+            ratingRange={config?.ratingRange || { min: 1, max: 5 }}
+            hasSubmitted={hasSubmitted}
+            responseLocked={responseLocked}
+            onSubmit={(rating) => handleInteractionSubmit("rating", { rating })}
+            results={ratingResults}
+          />
+        )}
+      </div>
+    );
   };
 
   return (
@@ -144,46 +447,63 @@ export default function AudienceView() {
         <div className="font-semibold text-gray-900 dark:text-white text-lg">
           Sentio
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-            Live
-          </span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowQnA(!showQnA)}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors relative"
+          >
+            <MessageCircle className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+            {qnaQuestions.filter((q) => q.status === "pending").length > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full text-[10px] text-white flex items-center justify-center font-bold">
+                {qnaQuestions.filter((q) => q.status === "pending").length}
+              </span>
+            )}
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+              Live
+            </span>
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center p-6 w-full max-w-2xl mx-auto">
-        {hasSubmitted ? (
-          <div className="text-center animate-in fade-in zoom-in duration-300">
-            <CheckCircle2 className="w-20 h-20 text-green-500 mx-auto mb-6" />
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Response recorded
-            </h2>
-            <p className="text-gray-500 dark:text-gray-400 text-lg">
-              Waiting for the next slide...
-            </p>
-          </div>
-        ) : (
-          <div className="w-full bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-800 p-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8 text-center">
-              Submit your response
-            </h2>
-
-            <div className="space-y-4">
-              {/* Mock generic buttons for interaction */}
-              {["A", "B", "C", "D"].map((opt) => (
-                <button
-                  key={opt}
-                  onClick={() => handleSubmit(opt)}
-                  className="w-full py-4 px-6 text-left bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 border-2 border-transparent hover:border-blue-500 rounded-2xl font-medium text-lg text-gray-900 dark:text-white transition-all transform hover:scale-[1.01]"
-                >
-                  Option {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+      <main className="flex-1 flex flex-col items-center justify-center p-6 w-full max-w-2xl mx-auto relative">
+        {renderInteraction()}
       </main>
+
+      {/* Emoji Reactions Bar */}
+      {currentSlide && session?.status === "live" && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30">
+          <EmojiReactions
+            joinCode={joinCode}
+            slideId={currentSlide.slideId}
+            onReact={handleReaction}
+            counts={reactionCounts}
+          />
+        </div>
+      )}
+
+      {/* Q&A Panel */}
+      {showQnA && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50"
+          onClick={() => setShowQnA(false)}
+        >
+          <div
+            className="absolute right-0 top-0 bottom-0 w-full max-w-sm bg-white dark:bg-gray-900 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowQnA(false)}
+              className="absolute top-4 right-4 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg z-10"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+            <QnAPanel questions={qnaQuestions} onSubmit={handleQnASubmit} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

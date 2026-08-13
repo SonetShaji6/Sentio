@@ -17,3 +17,4 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.APP_NAME = void 0;
 exports.APP_NAME = "Sentio";
 __exportStar(require("./events/socket.events"), exports);
+__exportStar(require("./interactions"), exports);

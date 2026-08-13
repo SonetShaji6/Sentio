@@ -12,12 +12,12 @@ This document represents the living state of the official **Sentio 20-Module Sys
 
 ## 🎯 Project Vision & Purpose
 
-Sentio bridges the gap between presenters (educators, corporate trainers, keynote speakers, event hosts) and audiences by unifying interactive polling, quizzes, open text Q&A, and real-time word clouds with provider-abstracted AI intelligence (powered by Groq Cloud API).
+Sentio is an **AI-Powered Adaptive Learning & Interactive Scenario Engine**. It bridges the gap between presenters (educators, corporate trainers, keynote speakers) and audiences by generating dynamic, real-time knowledge graphs, adaptive quizzes, and interactive scenarios rather than static slides.
 
 ### Problem Statement vs Sentio Solution
 
-- **Traditional Tools**: Fragmented, manual question creation, static bar charts, lack of in-session real-time AI assistance, post-session reports requiring manual data aggregation.
-- **Sentio Platform**: End-to-end monorepo web application featuring live slide synchronization (<100ms WebSocket latency), AI question generation, automated sentiment analysis, smart post-session reports exported to PDF/CSV, and cloud file management.
+- **Traditional Tools**: Fragmented, manual question creation, static bar charts, linear slide-by-slide progression (Mentimeter/AhaSlides).
+- **Sentio Platform**: A continuous, real-time adaptive engine. The presenter uploads a core topic or document. The AI builds a dynamic knowledge graph. During the live session, the AI pushes adaptive challenges to the audience, analyzes their comprehension in real-time, and guides the presenter with dynamic talking points and pivots based on collective understanding.
 
 ---
 
@@ -63,9 +63,9 @@ flowchart TD
 
     subgraph BackendApp["apps/backend (Express.js + Socket.IO)"]
         API[REST API Routes]
-        SVR[Socket.IO Real-Time Server]
+        SVR[Socket.IO Real-Time Engine (State Machine)]
         SEC[Security Middleware: Helmet, JWT, Rate Limiting]
-        AIS[AI Service Layer: Groq Provider & Prompt Manager]
+        AIS[AI Continuous Evaluation Loop (Groq)]
         AZS[Azure Blob Storage Integration Service]
         EMS[Resend Email Notification Service]
     end
@@ -73,13 +73,13 @@ flowchart TD
     subgraph ExternalServices["Cloud Infrastructure & External APIs"]
         MDB[(🍃 MongoDB Atlas)]
         AZB[(☁️ Azure Blob Storage)]
-        GROQ[⚡ Groq AI Cloud API]
+        GROQ[⚡ Groq AI Cloud API (Adaptive Inference)]
         RESEND[✉️ Resend Email API]
     end
 
     P --> UI
     A --> UI
-    UI --> SKC <-->|WebSockets| SVR
+    UI --> SKC <-->|WebSockets (Live State Sync)| SVR
     UI --> AUT <-->|REST API| API
     FrontendApp -.-> SharedPkg
     BackendApp -.-> SharedPkg
@@ -89,6 +89,7 @@ flowchart TD
     API --> AZS --> AZB
     API --> EMS --> RESEND
     SVR --> MDB
+    SVR <--> AIS
 ```
 
 ---
@@ -121,24 +122,23 @@ flowchart TD
    - `avatar`: Profile Picture URL (String, Azure Blob)
    - `refreshToken`: Invalidation Token (String, Hashed)
 
-2. **`Presentation` Model** (`apps/backend/src/models/Presentation.ts`):
-   - `title`: Presentation Title (String, Required)
+2. **`Experience` (formerly Presentation) Model** (`apps/backend/src/models/Experience.ts`):
+   - `title`: Experience Title (String, Required)
    - `description`: Overview Description (String)
    - `code`: 6-Character Unique Access Code (String, Uppercase, Indexed)
    - `owner`: Presenter ID (Ref: `User`)
-   - `slides`: Array of Slide References (Ref: `Slide`)
-   - `settings`: `{ theme, allowAnonymous, requireEmail, showResultsImmediately }`
+   - `conceptGraph`: AI-generated Knowledge Graph representing flow
+   - `settings`: `{ theme, allowAnonymous, requireEmail, mode: "adaptive" | "linear" }`
    - `status`: Lifecycle State (`"draft" | "published" | "live" | "completed" | "archived"`)
-   - `currentSlideIndex`: Active Slide Index (Number, Default: 0)
+   - `currentState`: Current active concept/challenge node
 
-3. **`Slide` Model** (`apps/backend/src/models/Slide.ts`):
-   - `presentation`: Parent Presentation ID (Ref: `Presentation`)
-   - `order`: Sequential Position (Number)
-   - `type`: Interactive Slide Type (`"title" | "info" | "multiple-choice" | "open-ended" | "word-cloud" | "rating" | "quiz" | "image-poll" | "leaderboard" | "thank-you"`)
-   - `title`: Slide Headline (String)
-   - `description`: Subtext / Question Prompt (String)
-   - `content`: Mixed Payload (Options, correct answer, media URL, rating scales)
-   - `settings`: `{ timeLimit, showResults, autoAdvance }`
+3. **`Challenge` (formerly Slide) Model** (`apps/backend/src/models/Challenge.ts`):
+   - `experience`: Parent Experience ID (Ref: `Experience`)
+   - `conceptId`: The node in the ConceptGraph this relates to
+   - `type`: Interactive Challenge Type (`"quiz" | "scenario" | "open-ended" | "roleplay"`)
+   - `prompt`: Challenge text/context
+   - `content`: Mixed Payload (Options, correct answers, evaluation rubrics)
+   - `adaptiveSettings`: `{ difficultyLevel, prerequisites }`
 
 4. **`Notification` Model** (`apps/backend/src/models/Notification.ts`):
    - `recipient`: User ID (Ref: `User`)
@@ -146,6 +146,24 @@ flowchart TD
    - `type`: Categorization (`"info" | "success" | "warning" | "error"`)
    - `read`: Boolean Status (Default: false)
    - `link`: Target Navigation Link (String)
+
+5. **`Report` Model** (`apps/backend/src/models/Report.ts`):
+   - `user`: Presenter ID (Ref: `User`)
+   - `presentationId`: Presentation ID (Ref: `Presentation`)
+   - `sessionId`: Session ID (Ref: `Session`)
+   - `title`, `type` (`"full" | "summary" | "analytics"`)
+   - `status` (`"PENDING" | "PROCESSING" | "COMPLETED" | "FAILED"`)
+   - `fileFormat` (`"pdf" | "csv" | "json"`)
+   - `fileUrl`: Azure Blob Storage Link
+
+6. **`FileResource` Model** (`apps/backend/src/models/FileResource.ts`):
+   - `originalName`, `storedName`, `mimeType`, `size`
+   - `owner`: User ID (Ref: `User`)
+   - `presentationId`: Associated Presentation ID (Ref: `Presentation`)
+   - `category` (`"presentation" | "document" | "image" | "reference"`)
+   - `fileUrl`: Azure Blob Storage Link
+   - `extractedText`: Processed text content for AI Knowledge Base
+   - `version`, `isLatestVersion`: Document version control
 
 ---
 
@@ -165,13 +183,13 @@ flowchart TD
 2. **Module 2: Identity & Access Management** (Auth, JWT, HTTP-only cookies, Resend email recovery, profile management).
 3. **Module 3: Public Website & SEO Management** (Landing page, features, dynamic metadata, sitemap, robots.txt).
 4. **Module 4: User Dashboard & Workspace** (Presenter portal, active presentations, NotificationCenter, user settings).
-5. **Module 5: Presentation Management** (CRUD operations, 6-digit session codes, search/filter, auto-save, cloud storage).
-6. **Module 6: Presentation Builder** (Slide authoring, 11 slide types, question configuration, theme customization).
-7. **Module 7: Live Presentation & Real-Time Session Management** (Host controls, Socket.IO sync, guest join, presence).
-8. **Module 8: Audience Interaction System** (Live polls, quizzes, word clouds, Q&A, emoji reactions, feedback).
-9. **Module 9: Analytics & Audience Intelligence** (Participation, performance, engagement metrics, charts, CSV exports).
-10. **Module 10: AI Service Layer & AI Assistant** (Groq LLM SDK, prompt manager, AI question & quiz generator, chat).
-11. **Module 11: AI Analytics & Intelligent Recommendations** (Sentiment analysis, engagement score, AI recommendations).
+5. **Module 5: Experience Management** (CRUD operations, 6-digit session codes, search/filter, auto-save, cloud storage).
+6. **Module 6: Knowledge Graph Builder** (Uploading documents, AI generation of concepts and challenges, theme customization).
+7. **Module 7: Live Adaptive Engine & Session Management** (Host controls, Socket.IO state machine, AI live loop).
+8. **Module 8: Adaptive Audience Interaction** (Live adaptive quizzes, scenarios, roleplays, continuous feedback).
+9. **Module 9: Analytics & Comprehension Intelligence** (Live comprehension tracking, engagement metrics, charts, CSV exports).
+10. **Module 10: AI Continuous Evaluation Layer** (Groq LLM SDK, real-time evaluation of audience answers).
+11. **Module 11: AI Presenter Guidance** (Real-time talking points, sentiment analysis, pivot recommendations).
 12. **Module 12: Report Generation & Export System** (Session reports, PDF export, Azure Blob upload).
 13. **Module 13: File Management & Knowledge Base** (PDF/PPTX document upload, Azure Blob integration, AI knowledge base).
 14. **Module 14: Notifications & Communication** (In-app notification center, Resend email alerts, browser push notifications).

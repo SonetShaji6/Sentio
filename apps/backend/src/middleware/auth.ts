@@ -34,3 +34,40 @@ export function requireAuth(
     res.status(401).json({ message: "Invalid or expired token" });
   }
 }
+
+/**
+ * Requires an authenticated user with role === "admin".
+ */
+export async function requireAdmin(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  requireAuth(req, res, async () => {
+    const userRole = (req as any).user?.role;
+    if (userRole !== "admin") {
+      res
+        .status(403)
+        .json({ message: "Access denied. Administrator privileges required." });
+      return;
+    }
+
+    // Check if user is blocked
+    try {
+      const User = (await import("../models/User")).default;
+      const user = await User.findById((req as any).user.id).select(
+        "isBlocked",
+      );
+      if (user?.isBlocked) {
+        res
+          .status(403)
+          .json({ message: "Account is blocked. Contact support." });
+        return;
+      }
+    } catch (e) {
+      // Continue if DB check fails
+    }
+
+    next();
+  });
+}
