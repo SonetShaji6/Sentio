@@ -61,9 +61,9 @@ export function buildPDFReport(reportData: any): Promise<Buffer> {
       const doc = new PDFDocument({ margin: 50, size: "A4" });
       const buffers: Buffer[] = [];
 
-      doc.on("data", (chunk) => buffers.push(chunk));
+      doc.on("data", (chunk: any) => buffers.push(chunk));
       doc.on("end", () => resolve(Buffer.concat(buffers)));
-      doc.on("error", (err) => reject(err));
+      doc.on("error", (err: any) => reject(err));
 
       // Color palette
       const primaryColor = "#4F46E5"; // Indigo
