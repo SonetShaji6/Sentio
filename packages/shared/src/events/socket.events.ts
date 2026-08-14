@@ -24,9 +24,11 @@ export const SOCKET_EVENTS = {
   STATE_TRANSITION: "state-transition", // Replaces slide-changed
   AUDIENCE_UPDATED: "audience-updated",
 
-  // ── Presentation ──
+  // ── Presentation & Slides ──
   PRESENTATION_UPDATE: "presentation_update",
   SLIDE_CHANGE: "slide_change",
+  HOST_SLIDE_CHANGE: "host-slide-change",
+  SLIDE_CHANGED: "slide-changed",
   SUBMIT_RESPONSE: "submit_response",
   NEW_RESPONSE: "new_response",
   NOTIFICATION: "notification",

@@ -10,8 +10,10 @@ export interface IParticipant {
 }
 
 export interface ISession extends Document {
-  experienceId: mongoose.Types.ObjectId; // Refers to the new Experience model
+  presentationId?: mongoose.Types.ObjectId; // For presentation sessions
+  experienceId?: mongoose.Types.ObjectId; // For experience sessions
   status: "waiting" | "live" | "paused" | "ended";
+  currentSlideIndex?: number; // Slide index
   currentConceptId?: string; // Replaces currentSlideIndex
   currentChallengeId?: mongoose.Types.ObjectId; // The active challenge
   joinCode: string;
@@ -40,10 +42,14 @@ const ParticipantSchema = new Schema<IParticipant>(
 
 const SessionSchema = new Schema<ISession>(
   {
+    presentationId: {
+      type: Schema.Types.ObjectId,
+      ref: "Presentation",
+      index: true,
+    },
     experienceId: {
       type: Schema.Types.ObjectId,
       ref: "Experience",
-      required: true,
       index: true,
     },
     status: {
@@ -51,6 +57,7 @@ const SessionSchema = new Schema<ISession>(
       enum: ["waiting", "live", "paused", "ended"],
       default: "waiting",
     },
+    currentSlideIndex: { type: Number, default: 0 },
     currentConceptId: { type: String },
     currentChallengeId: { type: Schema.Types.ObjectId, ref: "Challenge" },
     joinCode: { type: String, required: true, unique: true, index: true },
