@@ -25,6 +25,21 @@ export interface SlideConfig {
   [key: string]: any; // Allow extensibility
 }
 
+export interface SlideElement {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  zIndex: number;
+  locked?: boolean;
+  visible?: boolean;
+  properties?: any;
+  interactionConfig?: any;
+}
+
 export interface ISlide {
   _id: string;
   presentationId: string;
@@ -36,6 +51,7 @@ export interface ISlide {
   isHidden: boolean;
   isLocked: boolean;
   themeOverrides?: any;
+  elements?: SlideElement[];
   createdAt: string;
   updatedAt: string;
 }

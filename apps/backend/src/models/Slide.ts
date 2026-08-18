@@ -14,6 +14,7 @@ export interface ISlide extends Document {
   isHidden: boolean;
   isLocked: boolean;
   themeOverrides?: any;
+  elements?: any[]; // To be strongly typed later if needed
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,6 +51,7 @@ const SlideSchema = new Schema<ISlide>(
     isHidden: { type: Boolean, default: false },
     isLocked: { type: Boolean, default: false },
     themeOverrides: { type: Schema.Types.Mixed },
+    elements: { type: [Schema.Types.Mixed], default: [] },
   },
   { timestamps: true },
 );

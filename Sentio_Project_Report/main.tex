@@ -1,0 +1,213 @@
+\documentclass[12pt,a4paper]{report}
+
+% ------------------------------------------------
+% Packages
+% ------------------------------------------------
+
+\usepackage[a4paper,
+            left=1in,
+            right=1in,
+            top=1in,
+            bottom=1in]{geometry}
+
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{amsmath,amssymb}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{adjustbox}
+
+% ------------------------------------------------
+% Formatting
+% ------------------------------------------------
+
+\linespread{1.3}
+
+\titleformat{\chapter}[display]
+{\normalfont\bfseries}
+{}{0pt}
+{\centering\Huge}
+
+\titleformat{\section}
+{\large\bfseries}
+{\thesection}
+{1em}
+{}
+
+\titleformat{\subsection}
+{\normalsize\bfseries}
+{\thesubsection}
+{1em}
+{}
+
+\titleformat{\subsubsection}
+{\small\bfseries}
+{\thesubsubsection}
+{1em}
+{}
+
+\titlespacing*{\chapter}{0pt}{-20pt}{20pt}
+
+% ------------------------------------------------
+% Hyperlinks
+% ------------------------------------------------
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue,
+    citecolor=black
+}
+
+% ------------------------------------------------
+% Header / Footer
+% ------------------------------------------------
+
+\pagestyle{fancy}
+\fancyhf{}
+
+\fancyfoot[C]{\thepage}
+
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% ------------------------------------------------
+% Document
+% ------------------------------------------------
+
+\begin{document}
+
+% =================================================
+% TITLE PAGE
+% =================================================
+
+\begin{titlepage}
+
+\centering
+
+\textbf{\Large GOVERNMENT OF KERALA}
+
+\vspace{0.4cm}
+
+\textbf{\Large DEPARTMENT OF TECHNICAL EDUCATION}
+
+\vspace{0.8cm}
+
+\textbf{\Large RAJIV GANDHI INSTITUTE OF TECHNOLOGY}
+
+\vspace{0.4cm}
+
+\textbf{\Large (GOVT. ENGINEERING COLLEGE)}
+
+\vspace{0.4cm}
+
+\textbf{\Large KOTTAYAM - 686501}
+
+\vspace{1.5cm}
+
+\includegraphics[width=0.25\textwidth]{image.png}
+
+\vspace{1.5cm}
+
+{\Large\textbf{MINI PROJECT REPORT}}
+
+\vspace{0.8cm}
+
+{\LARGE\textbf{SENTIO}}
+
+\vspace{0.4cm}
+
+{\large
+An AI-Powered Real-Time Interactive Presentation and Audience Engagement Platform
+}
+
+\vfill
+
+\textbf{SONET SHAJI}
+
+\vspace{0.3cm}
+
+Master of Computer Applications
+
+\vspace{0.3cm}
+
+Reg. No. 25MP2457
+
+\vspace{0.8cm}
+
+2026
+
+\end{titlepage}
+
+% =================================================
+% FRONT MATTER
+% =================================================
+
+\pagenumbering{roman}
+\input{abstract}
+\tableofcontents
+
+\clearpage
+
+\listoffigures
+
+\clearpage
+
+\listoftables
+
+\clearpage
+
+% =================================================
+% MAIN REPORT
+% =================================================
+
+\pagenumbering{arabic}
+
+\setcounter{page}{1}
+
+\input{chapters/chapter1}
+\input{chapters/chapter2}
+\input{chapters/chapter3}
+\input{chapters/chapter4}
+\input{chapters/chapter5}
+\input{chapters/chapter6}
+
+% =================================================
+% REFERENCES
+% =================================================
+
+\begin{thebibliography}{99}
+
+\bibitem{nextjs}
+Vercel, ``Next.js 15 Documentation \& App Router Architecture,'' \url{https://nextjs.org/docs}, 2025.
+
+\bibitem{react19}
+Meta Open Source, ``React 19 Documentation: Server Components \& Actions,'' \url{https://react.dev}, 2025.
+
+\bibitem{socketio}
+Socket.IO Foundation, ``Socket.IO v4: Realtime Bidirectional Event-Based Communication,'' \url{https://socket.io/docs/v4/}, 2024.
+
+\bibitem{express}
+OpenJS Foundation, ``Express.js: Fast, Unopinionated, Minimalist Web Framework for Node.js,'' \url{https://expressjs.com}, 2024.
+
+\bibitem{mongodb}
+MongoDB Inc., ``MongoDB Manual: Document-Based Distributed Database Architecture,'' \url{https://www.mongodb.com/docs/}, 2025.
+
+\bibitem{groq}
+Groq Inc., ``LPU Inference Engine \& Ultra-Low Latency LLM Serving API (LLaMA 3.3 70B),'' \url{https://groq.com}, 2025.
+
+\bibitem{tailwind}
+Tailwind Labs, ``Tailwind CSS v4: Utility-First CSS Framework Architecture,'' \url{https://tailwindcss.com/docs}, 2025.
+
+\bibitem{framer}
+Framer B.V., ``Framer Motion: Production-Ready Motion Library for React,'' \url{https://www.framer.com/motion/}, 2024.
+
+\end{thebibliography}
+
+\end{document}

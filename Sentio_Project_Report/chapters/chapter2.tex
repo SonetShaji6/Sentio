@@ -1,0 +1,114 @@
+\chapter{System Study}
+
+\section{Introduction}
+
+Before building Sentio, an in-depth study was conducted to understand how presenters currently deliver talks, where existing tools fall short, and what technical requirements are necessary to build a truly integrated interactive presentation platform. This chapter reviews existing market solutions, outlines their limitations, introduces the proposed Sentio platform, and presents the project's feasibility analysis.
+
+\section{Existing Systems and Market Analysis}
+
+Currently, speakers and educators rely on two main categories of software:
+
+\begin{enumerate}
+    \item \textbf{Traditional Presentation Software:} Tools such as Microsoft PowerPoint, Google Slides, and Apple Keynote. These applications are great for designing visually appealing slide decks with custom fonts, images, and animations. However, they were built solely for one-way broadcasting. They offer no built-in way to collect live audience feedback, run quizzes, or track comprehension while presenting.
+    
+    \item \textbf{Standalone Audience Response Platforms:} Web applications such as Mentimeter, Slido, and Kahoot. While these tools allow audience members to vote and submit questions using their smartphones, they function as standalone web pages. Each question takes over the whole screen, making it impossible to combine questions with explanatory notes or diagrams. Furthermore, presenters have to switch back and forth between their slide deck and the polling tool during presentations, breaking the natural rhythm of the session.
+\end{enumerate}
+
+\subsection{Comparison of Systems}
+
+Table~\ref{tab:comparison} highlights the key differences between traditional presentation tools, standalone audience polling tools, and the proposed Sentio platform.
+
+\begin{table}[H]
+\centering
+\caption{Comparison of Presentation and Polling Systems}
+\label{tab:comparison}
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Feature} & \textbf{PowerPoint / Slides} & \textbf{Mentimeter} & \textbf{Kahoot} & \textbf{Sentio (Proposed)} \\
+\midrule
+Visual 16:9 Slide Canvas & Yes & Limited & No & \textbf{Yes} \\
+Draggable Elements on Slides & Yes & No & No & \textbf{Yes} \\
+Live Audience Polling & No & Yes & Yes & \textbf{Yes} \\
+Real-Time WebSocket Sync & No & Yes & Yes & \textbf{Yes} \\
+Built-in AI Slide Generation & Limited & Basic & Basic & \textbf{Yes (Groq LLaMA 3.3)} \\
+Multiple Interactions per Slide & No & No & No & \textbf{Yes} \\
+Zero-Install Mobile Joining & N/A & Yes & App / Web & \textbf{Yes (QR / PIN)} \\
+Automated PDF Reports & Basic & Paid & Limited & \textbf{Yes} \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\section{Limitations of the Existing Systems}
+
+The most significant shortcomings identified in current solutions include:
+
+\begin{itemize}
+    \item \textbf{Fragmented Workflow:} Presenters are forced to jump between slide apps and polling websites, causing awkward delays and confusing the audience.
+    \item \textbf{Rigid Layouts:} Questions cannot be placed flexibly on a slide with supporting images or notes; they always take over the whole screen.
+    \item \textbf{Manual Creation Effort:} Writing quizzes, answer choices, and discussion prompts from scratch takes considerable time and effort.
+    \item \textbf{Multiple Subscriptions:} Schools and organizations often end up paying for separate subscriptions for slide tools and polling tools.
+\end{itemize}
+
+\section{Proposed System Overview}
+
+\textbf{Sentio} combines slide design, audience engagement, and generative artificial intelligence into a single, cohesive web platform. 
+
+The core features of the platform include:
+\begin{itemize}
+    \item A visual 16:9 canvas where text, images, and interactive questions live together naturally.
+    \item A full suite of interactive tools: multiple-choice polls, live quizzes with timers, rating scales, word clouds, Q\&A boards, and leaderboards.
+    \item Instant real-time updates via WebSockets so audience votes appear immediately on the main presentation display.
+    \item AI-assisted slide creation powered by Groq and LLaMA 3.3 for generating complete decks and quizzes in seconds.
+    \item Automatic PDF session reports summarizing attendance, participation, and quiz results.
+\end{itemize}
+
+\section{Feasibility Study}
+
+A feasibility study was carried out to ensure the project could be built effectively within our resources:
+
+\subsection{Technical Feasibility}
+The project uses dependable, modern technologies. Next.js 15 and React 19 provide a fast and reactive frontend. Node.js, Express.js, and Socket.IO provide a dependable backend for handling high-concurrency real-time WebSocket communication. MongoDB provides flexible document storage for slide content, and Groq provides fast AI inference for slide generation. These tools are open-source and well-documented, confirming technical feasibility.
+
+\subsection{Operational Feasibility}
+Sentio is designed to be straightforward for both presenters and audience members. Presenters can create and run presentations entirely inside standard web browsers with no software installation. Audience members join instantly by scanning a QR code or entering a 6-character code on their mobile devices without needing to create an account. This zero-install approach ensures high adoption and usability.
+
+\subsection{Economic Feasibility}
+The system is built entirely with open-source frameworks and deployed on free-tier cloud hosting (Vercel and Render). This eliminates software licensing costs while providing a unified tool that removes the need for multiple paid subscriptions.
+
+\section{System Requirements}
+
+\subsection{Functional Requirements}
+\begin{enumerate}
+    \item \textbf{Account Management:} User registration, secure login, password encryption, and profile settings.
+    \item \textbf{Slide Management:} Creating, editing, duplicating, reordering, and deleting presentations and slides.
+    \item \textbf{Interactive Elements:} Placing and configuring Quizzes, Polls, Word Clouds, Ratings, and Q\&A panels on any slide.
+    \item \textbf{Live Hosting:} Generating session PINs, broadcasting slide changes, locking responses, and revealing correct answers.
+    \item \textbf{AI Slide Generation:} Generating full slide decks and quiz questions from user topic prompts or documents.
+    \item \textbf{Reporting:} Generating downloadable PDF session summaries and leaderboard rankings.
+\end{enumerate}
+
+\subsection{Non-Functional Requirements}
+\begin{enumerate}
+    \item \textbf{Performance:} Live responses and slide transitions must update across all devices in under 100 milliseconds.
+    \item \textbf{Visual Consistency:} Slide layouts must maintain a clean 16:9 aspect ratio across all display sizes.
+    \item \textbf{Security:} Secure password hashing using bcrypt and protected API endpoints using JWT authentication tokens.
+    \item \textbf{Usability:} Intuitive desktop controls for presenters and a simple, touch-optimized interface for mobile participants.
+\end{enumerate}
+
+\subsection{Hardware and Software Requirements}
+
+\subsubsection{Development Environment}
+\begin{itemize}
+    \item \textbf{RAM:} 8 GB or higher.
+    \item \textbf{Operating System:} macOS, Linux, or Windows 11.
+    \item \textbf{Runtime:} Node.js v20 or higher.
+    \item \textbf{Database:} MongoDB v7.x or MongoDB Atlas.
+\end{itemize}
+
+\subsubsection{User Environment}
+\begin{itemize}
+    \item \textbf{Presenter:} Any desktop or laptop computer with a modern web browser.
+    \item \textbf{Participant:} Any smartphone, tablet, or PC with a web browser and internet connection.
+\end{itemize}

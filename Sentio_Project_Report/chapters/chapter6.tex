@@ -1,0 +1,32 @@
+\chapter{Conclusion and Future Scope}
+
+\section{Conclusion}
+
+The \textbf{Sentio} project was developed to transform traditional, one-sided presentations into interactive, two-way learning and engagement experiences. By combining a flexible 16:9 slide canvas, real-time WebSockets, and fast AI generation, Sentio eliminates the friction of switching between multiple disconnected presentation and polling tools.
+
+The key outcomes of the project include:
+\begin{enumerate}
+    \item \textbf{16:9 Responsive Canvas:} A reliable slide layout that maintains exact visual placement across all screen sizes without reflowing content.
+    \item \textbf{Integrated Interaction Suite:} Native support for live quizzes, polls, word clouds, rating scales, Q\&A, and competitive leaderboards on slides.
+    \item \textbf{Fast Real-Time Updates:} A Socket.IO WebSocket backend that updates audience responses and slide changes in under 40 milliseconds.
+    \item \textbf{AI-Assisted Slide Creation:} Integration with Groq AI (LLaMA 3.3) for generating structured slide decks and quizzes in under two seconds.
+    \item \textbf{Automated Reporting:} Generation of downloadable session summary reports in PDF format.
+\end{enumerate}
+
+\section{Limitations}
+
+The current version of the system has the following practical limitations:
+\begin{itemize}
+    \item \textbf{Internet Connectivity Dependency:} Real-time polling and response synchronization require an active internet connection on presenter and audience devices.
+    \item \textbf{Single Primary Presenter Control:} While multi-tenant organizations are supported, simultaneous real-time co-presenter dual-control of an active session is currently limited.
+\end{itemize}
+
+\section{Future Scope}
+
+Future enhancements planned for the platform include:
+\begin{enumerate}
+    \item \textbf{Real-Time Voice Transcription:} Using speech recognition to transcribe the speaker's voice during talks and automatically highlight key terms on slides.
+    \item \textbf{Adaptive Presentation Paths:} Enabling AI to suggest alternative review slides dynamically based on how well the audience answers a quiz question.
+    \item \textbf{Native Mobile Companion App:} Creating dedicated mobile apps for iOS and Android with haptic feedback and remote slide clicker controls.
+    \item \textbf{LMS Integration:} Connecting quiz scores and attendance directly to Learning Management Systems such as Moodle and Google Classroom.
+\end{enumerate}
