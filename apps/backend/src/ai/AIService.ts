@@ -29,7 +29,7 @@ class AIService {
       const AILog = (await import("../models/AILog")).default;
       await AILog.create({
         endpoint,
-        modelName: "llama-3.3-70b-versatile",
+        modelName: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
         promptTokens: usage?.promptTokens || 0,
         completionTokens: usage?.completionTokens || 0,
         totalTokens: usage?.totalTokens || 0,

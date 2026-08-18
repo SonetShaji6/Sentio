@@ -543,7 +543,7 @@ export async function moderateResponse(
   const interaction = await Interaction.findByIdAndUpdate(
     interactionId,
     { status: statusMap[action] },
-    { new: true },
+    { returnDocument: "after" },
   );
 
   if (!interaction) {

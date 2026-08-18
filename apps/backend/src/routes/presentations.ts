@@ -134,7 +134,7 @@ router.put("/:id", requireAuth, async (req: any, res: any): Promise<void> => {
     const presentation = await Presentation.findOneAndUpdate(
       { _id: req.params.id, owner: req.user!.id, isDeleted: false },
       { $set: updateData },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!presentation) {
@@ -157,7 +157,7 @@ router.delete(
       const presentation = await Presentation.findOneAndUpdate(
         { _id: req.params.id, owner: req.user!.id },
         { isDeleted: true, deletedAt: new Date() },
-        { new: true },
+        { returnDocument: "after" },
       );
 
       if (!presentation) {
@@ -242,7 +242,7 @@ router.post(
       const presentation = await Presentation.findOneAndUpdate(
         { _id: req.params.id, owner: req.user!.id },
         { isDeleted: false, $unset: { deletedAt: "" } },
-        { new: true },
+        { returnDocument: "after" },
       );
 
       if (!presentation) {
@@ -266,7 +266,7 @@ router.post(
       const presentation = await Presentation.findOneAndUpdate(
         { _id: req.params.id, owner: req.user!.id, isDeleted: false },
         { status: "archived" },
-        { new: true },
+        { returnDocument: "after" },
       );
 
       if (!presentation) {
@@ -655,7 +655,7 @@ router.put(
       const slide = await Slide.findOneAndUpdate(
         { _id: req.params.slideId, presentationId: presentation._id },
         { $set: updateData },
-        { new: true },
+        { returnDocument: "after" },
       );
 
       if (!slide) {

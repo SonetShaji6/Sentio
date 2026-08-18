@@ -38,7 +38,7 @@ router.patch(
       const notification = await Notification.findOneAndUpdate(
         { _id: notificationId, user: userId },
         { isRead: true },
-        { new: true },
+        { returnDocument: "after" },
       );
 
       if (!notification) {

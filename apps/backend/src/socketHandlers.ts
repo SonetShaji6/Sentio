@@ -79,7 +79,7 @@ function registerHostEvents(socket: Socket, io: Server): void {
         const session = await Session.findOneAndUpdate(
           { joinCode },
           { currentConceptId: conceptId, currentChallengeId: challengeId },
-          { new: true },
+          { returnDocument: "after" },
         );
         if (session) {
           io.to(joinCode).emit(SOCKET_EVENTS.STATE_TRANSITION, {
@@ -115,7 +115,7 @@ function registerHostEvents(socket: Socket, io: Server): void {
     const session = await Session.findOneAndUpdate(
       { joinCode },
       { status: "ended", endedAt: new Date() },
-      { new: true },
+      { returnDocument: "after" },
     );
     io.to(joinCode).emit(SOCKET_EVENTS.SESSION_ENDED);
 
@@ -521,7 +521,7 @@ function registerQnAEvents(socket: Socket, io: Server): void {
         const question = await QnAQuestion.findByIdAndUpdate(
           questionId,
           { status: newStatus },
-          { new: true },
+          { returnDocument: "after" },
         );
 
         if (question) {
