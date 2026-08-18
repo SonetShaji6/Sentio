@@ -88,14 +88,14 @@ export default function DashboardLayout({
           </button>
         </div>
 
-        <nav className="sidebar-nav flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+        <nav className="sidebar-nav flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
           <Link
             href="/dashboard"
-            className={`nav-item flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${isActive("/dashboard") && !pathname.startsWith("/presentations") ? "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400" : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"}`}
+            className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/dashboard") && !pathname.startsWith("/presentations") ? "bg-zinc-100 dark:bg-zinc-900 text-zinc-950 dark:text-white font-bold" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 hover:text-zinc-950 dark:hover:text-white font-medium"}`}
           >
             <svg
-              width="20"
-              height="20"
+              width="18"
+              height="18"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -112,11 +112,11 @@ export default function DashboardLayout({
           </Link>
           <Link
             href="/presentations"
-            className={`nav-item flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${isActive("/presentations") ? "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400" : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"}`}
+            className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/presentations") ? "bg-zinc-100 dark:bg-zinc-900 text-zinc-950 dark:text-white font-bold" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 hover:text-zinc-950 dark:hover:text-white font-medium"}`}
           >
             <svg
-              width="20"
-              height="20"
+              width="18"
+              height="18"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -132,11 +132,11 @@ export default function DashboardLayout({
           </Link>
           <Link
             href="/files"
-            className={`nav-item flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${isActive("/files") ? "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400" : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"}`}
+            className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/files") ? "bg-zinc-100 dark:bg-zinc-900 text-zinc-950 dark:text-white font-bold" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 hover:text-zinc-950 dark:hover:text-white font-medium"}`}
           >
             <svg
-              width="20"
-              height="20"
+              width="18"
+              height="18"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -154,11 +154,11 @@ export default function DashboardLayout({
           </Link>
           <Link
             href="/organizations"
-            className={`nav-item flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${isActive("/organizations") ? "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400" : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"}`}
+            className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/organizations") ? "bg-zinc-100 dark:bg-zinc-900 text-zinc-950 dark:text-white font-bold" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 hover:text-zinc-950 dark:hover:text-white font-medium"}`}
           >
             <svg
-              width="20"
-              height="20"
+              width="18"
+              height="18"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -179,11 +179,11 @@ export default function DashboardLayout({
           {user?.role === "admin" && (
             <Link
               href="/admin"
-              className={`nav-item flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${isActive("/admin") ? "bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 font-bold" : "text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"}`}
+              className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/admin") ? "bg-zinc-100 dark:bg-zinc-900 text-zinc-950 dark:text-white font-bold" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 hover:text-zinc-950 dark:hover:text-white font-medium"}`}
             >
               <svg
-                width="20"
-                height="20"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -198,11 +198,11 @@ export default function DashboardLayout({
           )}
           <Link
             href="/settings"
-            className={`nav-item flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${isActive("/settings") ? "bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400" : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"}`}
+            className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/settings") ? "bg-zinc-100 dark:bg-zinc-900 text-zinc-950 dark:text-white font-bold" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 hover:text-zinc-950 dark:hover:text-white font-medium"}`}
           >
             <svg
-              width="20"
-              height="20"
+              width="18"
+              height="18"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"

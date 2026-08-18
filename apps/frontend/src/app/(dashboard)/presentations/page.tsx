@@ -13,6 +13,7 @@ import {
   Archive,
   Trash2,
   Edit,
+  Play,
 } from "lucide-react";
 
 export default function PresentationsPage() {
@@ -142,17 +143,17 @@ export default function PresentationsPage() {
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-950 dark:border-white"></div>
         </div>
       ) : presentations.length === 0 ? (
-        <div className="text-center py-20 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-xl">
-          <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FileText className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+        <div className="text-center py-20 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl">
+          <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-900 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-zinc-200 dark:border-zinc-800">
+            <FileText className="w-8 h-8 text-zinc-900 dark:text-white" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-lg font-bold text-zinc-950 dark:text-white">
             No presentations found
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-sm mx-auto mb-6">
+          <p className="text-zinc-500 dark:text-zinc-400 mt-2 max-w-sm mx-auto mb-6 text-sm">
             Get started by creating your first interactive presentation.
           </p>
           <button onClick={handleCreate} className="btn btn-primary">
@@ -164,9 +165,9 @@ export default function PresentationsPage() {
           {presentations.map((p) => (
             <div
               key={p._id}
-              className="group border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden bg-white dark:bg-gray-900 shadow-sm hover:shadow-md transition-shadow"
+              className="group border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl overflow-hidden bg-white dark:bg-zinc-900/60 shadow-sm hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 transition-all"
             >
-              <div className="h-40 bg-gray-100 dark:bg-gray-800 relative">
+              <div className="h-40 bg-zinc-100 dark:bg-zinc-850 relative">
                 {p.coverImage ? (
                   <img
                     src={p.coverImage}
@@ -174,18 +175,18 @@ export default function PresentationsPage() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400">
+                  <div className="w-full h-full flex items-center justify-center text-zinc-400 dark:text-zinc-600">
                     <FileText className="w-12 h-12 opacity-50" />
                   </div>
                 )}
                 <div className="absolute top-3 right-3 flex gap-2">
                   <span
-                    className={`text-xs font-medium px-2.5 py-1 rounded-full shadow-sm backdrop-blur-sm ${
+                    className={`text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm backdrop-blur-sm ${
                       p.status === "live"
-                        ? "bg-green-100/90 text-green-700"
+                        ? "bg-emerald-950/80 border border-emerald-500/40 text-emerald-300"
                         : p.status === "published"
-                          ? "bg-blue-100/90 text-blue-700"
-                          : "bg-white/90 text-gray-700 dark:bg-gray-900/90 dark:text-gray-300"
+                          ? "bg-zinc-900/90 text-white border border-zinc-700"
+                          : "bg-white/90 text-zinc-700 border border-zinc-200 dark:bg-zinc-900/90 dark:text-zinc-300 dark:border-zinc-800"
                     }`}
                   >
                     {p.status}
@@ -194,27 +195,34 @@ export default function PresentationsPage() {
               </div>
               <div className="p-5">
                 <h3
-                  className="font-semibold text-gray-900 dark:text-white truncate"
+                  className="font-bold text-zinc-950 dark:text-white truncate text-base"
                   title={p.title}
                 >
                   {p.title}
                 </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2 min-h-10">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 line-clamp-2 min-h-8">
                   {p.description || "No description provided."}
                 </p>
-                <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                <div className="mt-5 pt-4 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+                  <span className="text-xs text-zinc-400 dark:text-zinc-500">
                     Updated {new Date(p.updatedAt).toLocaleDateString()}
                   </span>
                   <div className="flex items-center gap-2">
                     <Link
+                      href={`/presentations/${p._id}/host`}
+                      className="px-3 py-1.5 bg-zinc-950 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                      title="Start Live Presentation"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>Present</span>
+                    </Link>
+                    <Link
                       href={`/presentations/${p._id}/edit`}
-                      className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      className="p-2 text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
                       title="Edit"
                     >
                       <Edit className="w-4 h-4" />
                     </Link>
-                    {/* Add dropdown menu here in the future for Delete/Archive/Duplicate */}
                   </div>
                 </div>
               </div>

@@ -24,7 +24,7 @@ export function Logo({
           priority
         />
       </div>
-      <span className="text-xl font-bold tracking-tight text-gray-900">
+      <span className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white">
         Sentio
       </span>
     </div>

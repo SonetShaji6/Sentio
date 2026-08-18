@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col transition-colors">
       <Navbar />
 
       <main className="flex-grow">
@@ -36,13 +36,13 @@ export default function Home() {
         />
 
         {/* Product Overview / How it Works */}
-        <section className="py-24 bg-white">
+        <section className="py-24 bg-zinc-50 dark:bg-zinc-950/60 border-b border-zinc-200/80 dark:border-zinc-900 transition-colors">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto mb-16">
-              <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+              <h2 className="text-3xl font-extrabold tracking-tight text-zinc-950 dark:text-white sm:text-4xl">
                 Engage audiences like never before
               </h2>
-              <p className="mt-4 text-lg text-gray-600">
+              <p className="mt-4 text-base sm:text-lg text-zinc-600 dark:text-zinc-400">
                 Sentio enables presenters to create interactive sessions,
                 collect live responses, and analyze audience sentiment in
                 real-time using AI.
@@ -50,32 +50,38 @@ export default function Home() {
             </div>
 
             <div className="grid md:grid-cols-3 gap-8 text-center">
-              <div className="p-6">
-                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
+              <div className="p-8 bg-white dark:bg-zinc-900/40 rounded-3xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-sm">
+                <div className="w-12 h-12 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 rounded-2xl flex items-center justify-center mx-auto mb-5 text-lg font-black shadow-md">
                   1
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Create</h3>
-                <p className="text-gray-600">
+                <h3 className="text-xl font-bold text-zinc-950 dark:text-white mb-2">
+                  Create
+                </h3>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   Build presentations and add interactive polls, quizzes, and
-                  Q&A sessions.
+                  Q&A sessions in seconds.
                 </p>
               </div>
-              <div className="p-6">
-                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
+              <div className="p-8 bg-white dark:bg-zinc-900/40 rounded-3xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-sm">
+                <div className="w-12 h-12 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 rounded-2xl flex items-center justify-center mx-auto mb-5 text-lg font-black shadow-md">
                   2
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Engage</h3>
-                <p className="text-gray-600">
-                  Participants join your live session via a code and interact
-                  from any device.
+                <h3 className="text-xl font-bold text-zinc-950 dark:text-white mb-2">
+                  Engage
+                </h3>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                  Participants join your live session via a 6-digit code or QR
+                  scan from any device without signing in.
                 </p>
               </div>
-              <div className="p-6">
-                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
+              <div className="p-8 bg-white dark:bg-zinc-900/40 rounded-3xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-sm">
+                <div className="w-12 h-12 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 rounded-2xl flex items-center justify-center mx-auto mb-5 text-lg font-black shadow-md">
                   3
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Analyze</h3>
-                <p className="text-gray-600">
+                <h3 className="text-xl font-bold text-zinc-950 dark:text-white mb-2">
+                  Analyze
+                </h3>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   Get AI-generated insights and comprehensive reports on
                   audience engagement.
                 </p>
@@ -85,18 +91,18 @@ export default function Home() {
         </section>
 
         {/* Features Grid */}
-        <section className="py-24 bg-slate-50">
+        <section className="py-24 bg-white dark:bg-black border-b border-zinc-200/80 dark:border-zinc-900 transition-colors">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+            <div className="text-center max-w-2xl mx-auto mb-16">
+              <h2 className="text-3xl font-extrabold tracking-tight text-zinc-950 dark:text-white sm:text-4xl">
                 Everything you need
               </h2>
-              <p className="mt-4 text-lg text-gray-600">
-                Powerful features designed for professional presenters and
-                educators.
+              <p className="mt-4 text-base sm:text-lg text-zinc-600 dark:text-zinc-400">
+                Powerful features designed for professional presenters,
+                speakers, and educators.
               </p>
             </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               <FeatureCard
                 icon={<BarChart3 className="w-6 h-6" />}
                 title="Live Polling"
@@ -132,12 +138,12 @@ export default function Home() {
         </section>
 
         {/* Testimonials */}
-        <section className="py-24 bg-white">
+        <section className="py-24 bg-zinc-50 dark:bg-zinc-950/60 transition-colors">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl text-center mb-16">
+            <h2 className="text-3xl font-extrabold tracking-tight text-zinc-950 dark:text-white sm:text-4xl text-center mb-16">
               Loved by presenters everywhere
             </h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               <Testimonial
                 quote="Sentio completely transformed how I run my weekly all-hands meetings. The AI quizzes alone save me hours."
                 author="Sarah Jenkins"

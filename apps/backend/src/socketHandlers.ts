@@ -3,6 +3,8 @@ import { SOCKET_EVENTS } from "@sentio/shared";
 import Session from "./models/Session";
 import Challenge from "./models/Challenge";
 import Experience from "./models/Experience";
+import Slide from "./models/Slide";
+import Presentation from "./models/Presentation";
 import QnAQuestion from "./models/QnAQuestion";
 import * as interactionService from "./services/interactionService";
 import * as reactionService from "./services/reactionService";
@@ -29,48 +31,134 @@ function registerUserRoomEvents(socket: Socket): void {
   });
 }
 
-// ── Host Events (Module 7 — preserved) ──
+// ── Host Events ──
 
 function registerHostEvents(socket: Socket, io: Server): void {
-  socket.on(SOCKET_EVENTS.HOST_START, async ({ experienceId, joinCode }) => {
-    try {
-      let session = await Session.findOne({
-        experienceId,
-        status: { $ne: "ended" },
-      });
-      if (!session) {
-        session = new Session({
-          experienceId,
-          joinCode,
-          status: "live",
-          startedAt: new Date(),
-          hostSocketId: socket.id,
-        });
-      } else {
-        session.status = "live";
-        session.hostSocketId = socket.id;
-      }
-      await session.save();
+  socket.on(
+    SOCKET_EVENTS.HOST_START,
+    async ({ experienceId, presentationId, joinCode }) => {
+      try {
+        const cleanCode = (joinCode || "").toUpperCase();
+        const orConditions: any[] = [];
+        if (cleanCode) orConditions.push({ joinCode: cleanCode });
+        if (presentationId) {
+          orConditions.push({ presentationId, status: { $ne: "ended" } });
+        }
+        if (experienceId) {
+          orConditions.push({ experienceId, status: { $ne: "ended" } });
+        }
 
-      socket.join(joinCode);
-      io.to(joinCode).emit(SOCKET_EVENTS.SESSION_STARTED, { session });
+        let session =
+          orConditions.length > 0
+            ? await Session.findOne({ $or: orConditions } as any)
+            : null;
 
-      // Start reaction flush for this session
-      reactionService.startPeriodicFlush(session._id.toString());
-
-      // Broadcast initial challenge data
-      const challenges = await Challenge.find({ experience: experienceId });
-      if (challenges.length > 0) {
-        // Start with the first challenge for now (the AI loop will drive this later)
-        session.currentChallengeId = challenges[0]._id;
-        session.currentConceptId = challenges[0].conceptId;
+        if (!session) {
+          session = new Session({
+            presentationId: presentationId || undefined,
+            experienceId: experienceId || undefined,
+            joinCode:
+              cleanCode ||
+              Math.random().toString(36).substring(2, 8).toUpperCase(),
+            status: "live",
+            startedAt: new Date(),
+            hostSocketId: socket.id,
+            currentSlideIndex: 0,
+          });
+        } else {
+          session.status = "live";
+          session.hostSocketId = socket.id;
+          if (presentationId) session.presentationId = presentationId;
+          if (cleanCode) session.joinCode = cleanCode;
+          if (session.currentSlideIndex === undefined) {
+            session.currentSlideIndex = 0;
+          }
+        }
         await session.save();
-        broadcastChallengeData(io, joinCode, challenges[0], session);
+
+        if (presentationId) {
+          await Presentation.findByIdAndUpdate(presentationId, {
+            status: "live",
+            sessionCode: session.joinCode,
+          });
+        }
+
+        socket.join(session.joinCode);
+        io.to(session.joinCode).emit(SOCKET_EVENTS.SESSION_STARTED, {
+          session,
+        });
+
+        // Start reaction flush for this session
+        reactionService.startPeriodicFlush(session._id.toString());
+
+        // Broadcast initial slide if presentation
+        if (presentationId || session.presentationId) {
+          const pId = presentationId || session.presentationId;
+          const slides = await Slide.find({ presentationId: pId }).sort({
+            order: 1,
+          });
+          if (slides.length > 0) {
+            const currentIdx = session.currentSlideIndex || 0;
+            const slide = slides[currentIdx] || slides[0];
+            await broadcastSlideData(io, session.joinCode, slide, session);
+          }
+        } else if (experienceId || session.experienceId) {
+          const expId = experienceId || session.experienceId;
+          const challenges = await Challenge.find({ experience: expId });
+          if (challenges.length > 0) {
+            session.currentChallengeId = challenges[0]._id;
+            session.currentConceptId = challenges[0].conceptId;
+            await session.save();
+            broadcastChallengeData(
+              io,
+              session.joinCode,
+              challenges[0],
+              session,
+            );
+          }
+        }
+      } catch (error) {
+        console.error("host-start error:", error);
       }
-    } catch (error) {
-      console.error("host-start error:", error);
-    }
-  });
+    },
+  );
+
+  socket.on(
+    SOCKET_EVENTS.HOST_SLIDE_CHANGE,
+    async ({ joinCode, slideIndex }) => {
+      try {
+        const cleanCode = (joinCode || "").toUpperCase();
+        const session = await Session.findOne({
+          joinCode: cleanCode,
+          status: { $ne: "ended" },
+        });
+        if (!session) return;
+
+        session.currentSlideIndex = slideIndex;
+        await session.save();
+
+        io.to(session.joinCode).emit(SOCKET_EVENTS.SLIDE_CHANGED, {
+          slideIndex,
+        });
+
+        if (session.presentationId) {
+          const slides = await Slide.find({
+            presentationId: session.presentationId,
+          }).sort({ order: 1 });
+          if (slides[slideIndex]) {
+            await broadcastSlideData(
+              io,
+              session.joinCode,
+              slides[slideIndex],
+              session,
+            );
+          }
+        }
+      } catch (error) {
+        console.error("host-slide-change error:", error);
+      }
+    },
+  );
 
   socket.on(
     SOCKET_EVENTS.HOST_STATE_TRANSITION,
@@ -191,13 +279,14 @@ function registerHostEvents(socket: Socket, io: Server): void {
   );
 }
 
-// ── Audience Events (Module 7 — preserved) ──
+// ── Audience Events ──
 
 function registerAudienceEvents(socket: Socket, io: Server): void {
   socket.on(SOCKET_EVENTS.JOIN_SESSION, async ({ joinCode, displayName }) => {
     try {
+      const cleanCode = (joinCode || "").trim().toUpperCase();
       const session = await Session.findOne({
-        joinCode,
+        joinCode: cleanCode,
         status: { $ne: "ended" },
       });
       if (!session) {
@@ -208,7 +297,7 @@ function registerAudienceEvents(socket: Socket, io: Server): void {
         return;
       }
 
-      socket.join(joinCode);
+      socket.join(cleanCode);
 
       const existingParticipant = session.participants.find(
         (p) => p.displayName === displayName,
@@ -230,17 +319,32 @@ function registerAudienceEvents(socket: Socket, io: Server): void {
 
       await session.save();
 
-      // Send current challenge data to participant
+      // Send current session info to participant
       socket.emit(SOCKET_EVENTS.JOIN_SUCCESS, { session });
 
-      if (session.currentChallengeId && session.status === "live") {
+      // If presentation is live, immediately send current slide data to participant
+      if (session.presentationId && session.status === "live") {
+        const slides = await Slide.find({
+          presentationId: session.presentationId,
+        }).sort({ order: 1 });
+        const slideIndex = session.currentSlideIndex || 0;
+        if (slides[slideIndex]) {
+          await broadcastSlideData(
+            io,
+            cleanCode,
+            slides[slideIndex],
+            session,
+            socket,
+          );
+        }
+      } else if (session.currentChallengeId && session.status === "live") {
         const currentChallenge = await Challenge.findById(
           session.currentChallengeId,
         );
         if (currentChallenge) {
           broadcastChallengeData(
             io,
-            joinCode,
+            cleanCode,
             currentChallenge,
             session,
             socket,
@@ -248,7 +352,7 @@ function registerAudienceEvents(socket: Socket, io: Server): void {
         }
       }
 
-      io.to(joinCode).emit(SOCKET_EVENTS.AUDIENCE_UPDATED, {
+      io.to(cleanCode).emit(SOCKET_EVENTS.AUDIENCE_UPDATED, {
         count: session.participants.filter((p) => p.isOnline).length,
       });
     } catch (error) {
@@ -613,5 +717,45 @@ async function broadcastChallengeData(
     targetSocket.emit(SOCKET_EVENTS.SLIDE_DATA, challengeData); // Still using SLIDE_DATA client-side for now to avoid breaking UI entirely immediately
   } else {
     io.to(joinCode).emit(SOCKET_EVENTS.SLIDE_DATA, challengeData);
+  }
+}
+
+// ── Helper: Broadcast slide data to presentation participants ──
+
+async function broadcastSlideData(
+  io: Server,
+  joinCode: string,
+  slide: any,
+  session: any,
+  targetSocket?: Socket,
+): Promise<void> {
+  const safeConfig = { ...(slide.config || {}) };
+  // If slide is quiz, do not reveal isCorrect to audience on initial broadcast
+  if (slide.type === "quiz" && Array.isArray(safeConfig.options)) {
+    safeConfig.options = safeConfig.options.map((opt: any) => {
+      if (typeof opt === "object" && opt !== null) {
+        const { isCorrect, ...rest } = opt;
+        return rest;
+      }
+      return opt;
+    });
+  }
+
+  const slideData = {
+    slideId: slide._id.toString(),
+    type: slide.type,
+    title: slide.title,
+    description: slide.description,
+    config: safeConfig,
+    responseLocked:
+      session.responseLocked ||
+      session.slideResponseLocks?.get(slide._id.toString()) ||
+      false,
+  };
+
+  if (targetSocket) {
+    targetSocket.emit(SOCKET_EVENTS.SLIDE_DATA, slideData);
+  } else {
+    io.to(joinCode).emit(SOCKET_EVENTS.SLIDE_DATA, slideData);
   }
 }

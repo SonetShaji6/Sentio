@@ -2,10 +2,81 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import Session from "../models/Session";
 import Presentation from "../models/Presentation";
+import Slide from "../models/Slide";
 import QnAQuestion from "../models/QnAQuestion";
 import * as interactionService from "../services/interactionService";
 
 const router = Router();
+
+// ── Public Check Session By Join Code ──
+router.get("/check/:joinCode", async (req: any, res: any): Promise<void> => {
+  try {
+    const cleanCode = (req.params.joinCode || "").trim().toUpperCase();
+    const session = await Session.findOne({
+      joinCode: cleanCode,
+      status: { $ne: "ended" },
+    });
+
+    if (!session) {
+      // Check if there's a presentation with this sessionCode or shareId prefix
+      const presentation = await Presentation.findOne({
+        $or: [
+          { sessionCode: cleanCode, isDeleted: false },
+          {
+            shareId: { $regex: new RegExp(`^${cleanCode}`, "i") },
+            isDeleted: false,
+          },
+        ],
+      });
+
+      if (presentation) {
+        const slideCount = await Slide.countDocuments({
+          presentationId: presentation._id,
+        });
+        res.json({
+          exists: true,
+          status: presentation.status === "live" ? "live" : "waiting",
+          title: presentation.title,
+          slideCount,
+          joinCode: cleanCode,
+          presentationId: presentation._id,
+        });
+        return;
+      }
+
+      res
+        .status(404)
+        .json({ exists: false, message: "Session not found or has ended" });
+      return;
+    }
+
+    let title = "Sentio Live Presentation";
+    let slideCount = 0;
+    if (session.presentationId) {
+      const presentation = await Presentation.findById(session.presentationId);
+      if (presentation) {
+        title = presentation.title;
+        slideCount = await Slide.countDocuments({
+          presentationId: presentation._id,
+        });
+      }
+    }
+
+    res.json({
+      exists: true,
+      status: session.status,
+      title,
+      slideCount,
+      joinCode: session.joinCode,
+      currentSlideIndex: session.currentSlideIndex || 0,
+      participantCount:
+        session.participants?.filter((p) => p.isOnline).length || 0,
+    });
+  } catch (error) {
+    console.error("Check session error:", error);
+    res.status(500).json({ message: "Failed to verify session" });
+  }
+});
 
 // ── Get Session Details ──
 router.get("/:id", requireAuth, async (req: any, res: any): Promise<void> => {

@@ -320,10 +320,14 @@ export default function PresentationBuilder() {
             <Settings className="w-5 h-5" />
           </button>
 
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm">
+          <Link
+            href={`/presentations/${presentationId}/host`}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm cursor-pointer"
+            title="Start Live Presentation"
+          >
             <Play className="w-4 h-4 fill-current" />
             <span className="hidden sm:inline">Present</span>
-          </button>
+          </Link>
         </div>
       </header>
 
