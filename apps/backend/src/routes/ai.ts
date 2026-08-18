@@ -9,43 +9,65 @@ const router = Router();
 // Apply AI rate limiter to all AI routes
 router.use(aiRateLimiter);
 
-// ── Generate Interaction Slides ──
+// ── Generate Interaction & Presentation Slides ──
 router.post(
   "/generate-slides",
   requireAuth,
   async (req: any, res: any): Promise<void> => {
     try {
-      const { type, topic, count, difficulty, audience, context } = req.body;
+      const { type, topic, count, difficulty, audience, context, tone } =
+        req.body;
 
-      if (!topic || !count || count > 10) {
-        res
-          .status(400)
-          .json({
-            message:
-              "Invalid parameters. 'topic' and 'count' (max 10) are required.",
-          });
+      const numCount = Number(count) || 3;
+
+      if (!topic || numCount < 1 || numCount > 10) {
+        res.status(400).json({
+          message:
+            "Invalid parameters. 'topic' and a valid 'count' (1-10) are required.",
+        });
         return;
       }
 
-      let generatedSlides = [];
+      let generatedSlides: any[] = [];
 
       if (type === "quiz") {
         generatedSlides = await aiService.generateQuiz(
           topic,
-          count,
+          numCount,
           difficulty || "medium",
           context,
         );
       } else if (type === "poll") {
-        generatedSlides = await aiService.generatePoll(topic, count, audience);
+        generatedSlides = await aiService.generatePoll(
+          topic,
+          numCount,
+          audience,
+        );
+      } else if (type === "deck" || type === "presentation") {
+        generatedSlides = await aiService.generateFullDeck(
+          topic,
+          numCount,
+          tone || "engaging",
+          audience,
+          context,
+        );
+      } else if (type === "icebreaker" || type === "icebreakers") {
+        generatedSlides = await aiService.generateIcebreakers(
+          topic,
+          numCount,
+          audience,
+        );
       } else {
-        res
-          .status(400)
-          .json({ message: "Invalid type. Must be 'quiz' or 'poll'." });
-        return;
+        // Fallback default: generate deck or quiz
+        generatedSlides = await aiService.generateQuiz(
+          topic,
+          numCount,
+          difficulty || "medium",
+          context,
+        );
       }
 
-      res.json(generatedSlides);
+      res.json(generatedSlides || []);
     } catch (error) {
       console.error("AI slide generation error:", error);
       res.status(500).json({ message: "Failed to generate AI content" });

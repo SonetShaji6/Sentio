@@ -15,30 +15,7 @@ class AIService {
   });
 
   constructor() {
-    // Easily swappable to OpenAIProvider or GeminiProvider in the future
     this.provider = new GroqProvider();
-  }
-
-  private async logAI(
-    endpoint: string,
-    usage: any,
-    startTime: number,
-    status: "success" | "error" = "success",
-  ) {
-    try {
-      const AILog = (await import("../models/AILog")).default;
-      await AILog.create({
-        endpoint,
-        modelName: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
-        promptTokens: usage?.promptTokens || 0,
-        completionTokens: usage?.completionTokens || 0,
-        totalTokens: usage?.totalTokens || 0,
-        latencyMs: Date.now() - startTime,
-        status,
-      });
-    } catch (err) {
-      console.warn("Failed to save AI log:", err);
-    }
   }
 
   private getCacheKey(method: string, prompt: string): string {
@@ -54,7 +31,7 @@ class AIService {
   async generateQuiz(
     topic: string,
     count: number,
-    difficulty: string,
+    difficulty: string = "medium",
     context?: string,
   ) {
     const prompt = PromptManager.getQuizPrompt(
@@ -103,6 +80,66 @@ class AIService {
   }
 
   /**
+   * Generates a complete structured presentation deck.
+   */
+  async generateFullDeck(
+    topic: string,
+    count: number = 5,
+    tone: string = "engaging",
+    audience?: string,
+    context?: string,
+  ) {
+    const prompt = PromptManager.getFullDeckPrompt(
+      topic,
+      count,
+      tone,
+      audience,
+      context,
+    );
+    const cacheKey = this.getCacheKey("full_deck", prompt);
+
+    if (this.cache.has(cacheKey)) {
+      console.log("[AIService] Cache hit for generateFullDeck");
+      return this.cache.get(cacheKey);
+    }
+
+    const response = await this.provider.generateStructured<any[]>(
+      prompt,
+      PromptManager.FULL_DECK_SCHEMA,
+      "You are a world-class presentation strategist and keynote designer.",
+    );
+
+    this.cache.set(cacheKey, response.content);
+    return response.content;
+  }
+
+  /**
+   * Generates icebreaker & audience warmup slides.
+   */
+  async generateIcebreakers(
+    topic: string,
+    count: number = 3,
+    audience?: string,
+  ) {
+    const prompt = PromptManager.getIcebreakerPrompt(topic, count, audience);
+    const cacheKey = this.getCacheKey("icebreakers", prompt);
+
+    if (this.cache.has(cacheKey)) {
+      console.log("[AIService] Cache hit for generateIcebreakers");
+      return this.cache.get(cacheKey);
+    }
+
+    const response = await this.provider.generateStructured<any[]>(
+      prompt,
+      PromptManager.ICEBREAKER_SCHEMA,
+      "You are an expert facilitator creating engaging audience icebreakers.",
+    );
+
+    this.cache.set(cacheKey, response.content);
+    return response.content;
+  }
+
+  /**
    * Summarizes a presentation based on text content.
    */
   async summarizePresentation(title: string, textContent: string) {
@@ -119,7 +156,7 @@ class AIService {
   }
 
   /**
-   * Analyzes live session data to provide real-time recommendations (Module 11).
+   * Analyzes live session data to provide real-time recommendations.
    */
   async analyzeEngagement(
     sessionOverview: any,
@@ -132,8 +169,6 @@ class AIService {
       timeline,
     );
 
-    // We do NOT cache this aggressively because session data changes minute-by-minute
-    // We rely on the recommendationService to throttle calls.
     const response = await this.provider.generateStructured<any>(
       prompt,
       PromptManager.RECOMMENDATION_SCHEMA,

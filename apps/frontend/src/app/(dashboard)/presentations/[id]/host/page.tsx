@@ -25,12 +25,14 @@ import {
   ExternalLink,
   Sparkles,
   Radio,
+  Keyboard,
 } from "lucide-react";
 import Link from "next/link";
 import { SlideEditor } from "@/components/builder/SlideEditor";
 import { PresenterResults } from "@/components/presenter/PresenterResults";
 import { ModerationPanel } from "@/components/presenter/ModerationPanel";
 import { QnAPanel } from "@/components/interactions/QnAPanel";
+import { KeyboardShortcutsModal } from "@/components/builder/KeyboardShortcutsModal";
 
 export default function HostPresenterView() {
   const params = useParams();
@@ -57,6 +59,7 @@ export default function HostPresenterView() {
   const [showQnA, setShowQnA] = useState(false);
   const [showResults, setShowResults] = useState(true);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [origin, setOrigin] = useState("");
 
@@ -336,6 +339,112 @@ export default function HostPresenterView() {
     emit(SOCKET_EVENTS.QNA_MODERATE, { joinCode, questionId, action });
   };
 
+  // Keyboard Shortcuts Listener for Presenter Mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+
+      if (e.key === "Escape") {
+        if (showQRModal) {
+          setShowQRModal(false);
+          return;
+        }
+        if (isShortcutsOpen) {
+          setIsShortcutsOpen(false);
+          return;
+        }
+        router.push(`/presentations/${presentationId}/edit`);
+        return;
+      }
+
+      if (e.key === "?" && !isInput) {
+        e.preventDefault();
+        setIsShortcutsOpen((prev) => !prev);
+        return;
+      }
+
+      if (isInput) return;
+
+      // Next slide (ArrowRight, Space, PageDown, N)
+      if (
+        e.key === "ArrowRight" ||
+        e.key === " " ||
+        e.key === "PageDown" ||
+        e.key.toLowerCase() === "n"
+      ) {
+        e.preventDefault();
+        goToNextSlide();
+        return;
+      }
+
+      // Previous slide (ArrowLeft, PageUp, P)
+      if (
+        e.key === "ArrowLeft" ||
+        e.key === "PageUp" ||
+        e.key.toLowerCase() === "p"
+      ) {
+        e.preventDefault();
+        goToPrevSlide();
+        return;
+      }
+
+      // Fullscreen toggle (F)
+      if (e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+        return;
+      }
+
+      // Lock toggle (L)
+      if (e.key.toLowerCase() === "l") {
+        e.preventDefault();
+        toggleResponseLock();
+        return;
+      }
+
+      // Toggle QR modal (M)
+      if (e.key.toLowerCase() === "m") {
+        e.preventDefault();
+        setShowQRModal((prev) => !prev);
+        return;
+      }
+
+      // Toggle Results (R)
+      if (e.key.toLowerCase() === "r") {
+        e.preventDefault();
+        setShowResults((prev) => !prev);
+        return;
+      }
+
+      // Toggle Q&A (Q)
+      if (e.key.toLowerCase() === "q") {
+        e.preventDefault();
+        setShowQnA((prev) => !prev);
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    goToNextSlide,
+    goToPrevSlide,
+    toggleResponseLock,
+    showQRModal,
+    isShortcutsOpen,
+    presentationId,
+    router,
+  ]);
+
   if (loading || !presentation) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-950">
@@ -355,14 +464,14 @@ export default function HostPresenterView() {
   return (
     <div className="h-screen flex flex-col bg-black text-white overflow-hidden">
       {/* Top Bar */}
-      <div className="h-16 flex items-center justify-between px-6 bg-zinc-950 border-b border-zinc-800 shrink-0">
-        <div className="flex items-center gap-4">
+      <div className="h-14 flex items-center justify-between px-4 sm:px-6 bg-zinc-950 border-b border-zinc-800 shrink-0">
+        <div className="flex items-center gap-3">
           <Link
             href={`/presentations/${presentationId}/edit`}
-            className="p-2 hover:bg-zinc-900 rounded-full transition-colors text-zinc-400 hover:text-white"
-            title="Back to Editor"
+            className="p-1.5 hover:bg-zinc-900 rounded-full transition-colors text-zinc-400 hover:text-white"
+            title="Back to Editor (Esc)"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </Link>
           <div className="flex items-center gap-2">
             <h1 className="text-base sm:text-lg font-bold truncate max-w-xs sm:max-w-sm text-white">
@@ -495,11 +604,17 @@ export default function HostPresenterView() {
             </div>
           ) : (
             /* Live Slide Preview */
-            <div className="w-full max-w-5xl aspect-[16/9] relative bg-white text-black shadow-2xl rounded-2xl overflow-hidden ring-4 ring-zinc-800">
+            <div className="w-full h-full max-w-6xl max-h-[82vh] relative flex items-center justify-center rounded-2xl overflow-hidden shadow-2xl">
               {slides.length > 0 ? (
-                <SlideEditor slide={currentSlide} />
+                <SlideEditor
+                  slide={currentSlide}
+                  theme={presentation?.theme}
+                  joinCode={joinCode}
+                  isHost={true}
+                  showToolbar={false}
+                />
               ) : (
-                <div className="flex items-center justify-center h-full text-zinc-500">
+                <div className="flex items-center justify-center h-full text-zinc-500 font-medium">
                   No slides available
                 </div>
               )}
@@ -646,11 +761,18 @@ export default function HostPresenterView() {
         </div>
 
         {/* Right Action */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsShortcutsOpen(true)}
+            className="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-zinc-900 transition-colors hidden sm:flex border border-zinc-800"
+            title="Keyboard Shortcuts (?)"
+          >
+            <Keyboard className="w-4 h-4" />
+          </button>
           <button
             onClick={() => setShowQRModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl text-xs font-medium transition-colors border border-zinc-800"
-            title="Show Join Info"
+            title="Show Join Info (M)"
           >
             <QrCode className="w-4 h-4" />
             <span className="hidden sm:inline">Join Info</span>
@@ -721,6 +843,13 @@ export default function HostPresenterView() {
           </div>
         </div>
       )}
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsOpen}
+        onClose={() => setIsShortcutsOpen(false)}
+        isHost={true}
+      />
     </div>
   );
 }

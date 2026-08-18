@@ -63,6 +63,15 @@ export default function DashboardLayout({
   const isActive = (path: string) =>
     pathname === path || pathname.startsWith(`${path}/`);
 
+  // Full-screen immersive mode for presentation editor and presenter views
+  const isImmersivePresentation =
+    pathname?.includes("/presentations/") &&
+    (pathname?.includes("/edit") || pathname?.includes("/host"));
+
+  if (isImmersivePresentation) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="dashboard-shell flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
       {/* Mobile overlay */}

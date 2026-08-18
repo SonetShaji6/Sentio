@@ -15,6 +15,12 @@ export interface SlideConfig {
   options?: any[];
   correctAnswers?: any[];
   points?: number;
+  bulletPoints?: string[];
+  kicker?: string;
+  author?: string;
+  authorRole?: string;
+  lowLabel?: string;
+  highLabel?: string;
   timer?: number | null;
   autoNext?: boolean;
   allowMultiple?: boolean;
@@ -22,6 +28,26 @@ export interface SlideConfig {
   charLimit?: number;
   callToAction?: string;
   mediaUrl?: string;
+  mediaPosition?:
+    "right" | "left" | "top" | "bottom" | "background" | "custom" | "card";
+  mediaAlt?: string;
+  mediaWidth?: number; // width percentage: 20 to 100
+  mediaHeight?: number; // height in px or percentage
+  mediaX?: number; // X position percentage for floating: 0 to 100
+  mediaY?: number; // Y position percentage for floating: 0 to 100
+  mediaFit?: "cover" | "contain" | "fill";
+  mediaRadius?: "none" | "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "full";
+  mediaShadow?: "none" | "sm" | "md" | "lg" | "2xl" | "glow";
+  mediaOpacity?: number; // 10 to 100
+  fontFamily?: "sans" | "serif" | "mono" | "display";
+  textColor?: string;
+  textMutedColor?: string;
+  bgColor?: string;
+  cardBgColor?: string;
+  accentColor?: string;
+  fontSize?: "small" | "normal" | "large" | "huge";
+  align?: "left" | "center" | "right";
+  layoutStyle?: "standard" | "split" | "centered" | "card";
   [key: string]: any; // Allow extensibility
 }
 

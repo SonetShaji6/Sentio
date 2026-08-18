@@ -1,47 +1,22 @@
 "use client";
 
-import React from "react";
-import { X, Check } from "lucide-react";
+import React, { useState } from "react";
+import { X, Check, Palette, Sparkles, Type, RefreshCw } from "lucide-react";
 import { useAutoSave } from "@/hooks/useAutoSave";
+import {
+  PresentationTheme,
+  PRESET_THEMES,
+  DEFAULT_THEME,
+  resolveTheme,
+} from "@/types/theme";
 
 interface ThemeSettingsProps {
   isOpen: boolean;
   onClose: () => void;
   presentationId: string;
   initialTheme: any;
-  onThemeUpdate: (theme: any) => void;
+  onThemeUpdate: (theme: PresentationTheme) => void;
 }
-
-const presetThemes = [
-  {
-    id: "light",
-    name: "Light Mode",
-    bg: "#ffffff",
-    text: "#111827",
-    primary: "#3b82f6",
-  },
-  {
-    id: "dark",
-    name: "Dark Mode",
-    bg: "#111827",
-    text: "#ffffff",
-    primary: "#60a5fa",
-  },
-  {
-    id: "sentio",
-    name: "Sentio Brand",
-    bg: "#f8fafc",
-    text: "#0f172a",
-    primary: "#2563eb",
-  },
-  {
-    id: "midnight",
-    name: "Midnight Blue",
-    bg: "#0f172a",
-    text: "#f8fafc",
-    primary: "#38bdf8",
-  },
-];
 
 export function ThemeSettings({
   isOpen,
@@ -50,143 +25,294 @@ export function ThemeSettings({
   initialTheme,
   onThemeUpdate,
 }: ThemeSettingsProps) {
+  const currentTheme = resolveTheme(initialTheme);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+
   const { data, updateData, saveState } = useAutoSave(
     `/api/presentations/${presentationId}`,
-    { theme: initialTheme || presetThemes[0] },
-    1000,
+    { theme: currentTheme },
+    800,
   );
 
   if (!isOpen) return null;
 
-  const currentThemeId = data.theme?.id || "light";
+  const activeTheme = resolveTheme(data.theme || currentTheme);
 
-  const handleThemeSelect = (theme: (typeof presetThemes)[0]) => {
+  const handleApplyTheme = (theme: PresentationTheme) => {
     updateData({ theme });
     onThemeUpdate(theme);
   };
 
+  const handleCustomColorChange = (
+    key: keyof PresentationTheme,
+    val: string,
+  ) => {
+    const updated: PresentationTheme = {
+      ...activeTheme,
+      id: "custom",
+      name: "Custom Palette",
+      [key]: val,
+    };
+    handleApplyTheme(updated);
+  };
+
+  const categories = [
+    { id: "all", label: "All Themes" },
+    { id: "minimal", label: "Minimal" },
+    { id: "dark", label: "Dark" },
+    { id: "vibrant", label: "Vibrant" },
+    { id: "editorial", label: "Editorial" },
+  ];
+
+  const filteredThemes =
+    selectedCategory === "all"
+      ? PRESET_THEMES
+      : PRESET_THEMES.filter((t) => t.category === selectedCategory);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/20 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-900 w-full max-w-sm h-full shadow-2xl flex flex-col animate-in slide-in-from-right">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Presentation Theme
-          </h2>
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-gray-500">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-end bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white dark:bg-zinc-900 w-full max-w-md h-full shadow-2xl flex flex-col border-l border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-right duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+              <Palette className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                Presentation Theme
+              </h2>
+              <p className="text-xs text-zinc-500">
+                Custom palettes apply to all slides
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-zinc-400 font-mono">
               {saveState === "saving" && "Saving..."}
               {saveState === "saved" && "Saved"}
             </span>
             <button
               onClick={onClose}
-              className="p-1.5 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        <div className="p-6 overflow-y-auto">
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
-            Preset Themes
-          </h3>
-
-          <div className="grid grid-cols-2 gap-4">
-            {presetThemes.map((theme) => (
-              <button
-                key={theme.id}
-                onClick={() => handleThemeSelect(theme)}
-                className={`relative flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
-                  currentThemeId === theme.id
-                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                    : "border-gray-200 dark:border-gray-700 hover:border-blue-300"
-                }`}
-              >
-                <div
-                  className="w-12 h-12 rounded-full mb-3 shadow-sm flex items-center justify-center"
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          {/* Active Theme Preview Card */}
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2.5">
+              Active Theme Preview
+            </label>
+            <div
+              className="p-5 rounded-2xl border shadow-sm flex flex-col justify-between h-32 transition-all relative overflow-hidden"
+              style={{
+                backgroundColor: activeTheme.bg,
+                borderColor: activeTheme.border,
+                color: activeTheme.text,
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span
+                  className="text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider"
                   style={{
-                    backgroundColor: theme.bg,
-                    border: `2px solid ${theme.primary}`,
+                    backgroundColor: `${activeTheme.primary}20`,
+                    color: activeTheme.primary,
                   }}
                 >
-                  <span
-                    className="text-xl font-bold"
-                    style={{ color: theme.text }}
-                  >
-                    A
-                  </span>
-                </div>
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {theme.name}
+                  {activeTheme.name}
                 </span>
-
-                {currentThemeId === theme.id && (
-                  <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white">
-                    <Check className="w-3 h-3" />
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-8">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
-              Custom Colors
-            </h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-600 dark:text-gray-400">
-                  Background
-                </label>
-                <input
-                  type="color"
-                  value={data.theme?.bg || "#ffffff"}
-                  onChange={(e) =>
-                    handleThemeSelect({
-                      ...data.theme,
-                      id: "custom",
-                      bg: e.target.value,
-                    })
-                  }
-                  className="w-8 h-8 rounded cursor-pointer"
-                />
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className="w-3.5 h-3.5 rounded-full"
+                    style={{ backgroundColor: activeTheme.primary }}
+                  />
+                  <div
+                    className="w-3.5 h-3.5 rounded-full"
+                    style={{ backgroundColor: activeTheme.accent }}
+                  />
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-600 dark:text-gray-400">
-                  Text
-                </label>
-                <input
-                  type="color"
-                  value={data.theme?.text || "#000000"}
-                  onChange={(e) =>
-                    handleThemeSelect({
-                      ...data.theme,
-                      id: "custom",
-                      text: e.target.value,
-                    })
-                  }
-                  className="w-8 h-8 rounded cursor-pointer"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-600 dark:text-gray-400">
-                  Primary (Accent)
-                </label>
-                <input
-                  type="color"
-                  value={data.theme?.primary || "#3b82f6"}
-                  onChange={(e) =>
-                    handleThemeSelect({
-                      ...data.theme,
-                      id: "custom",
-                      primary: e.target.value,
-                    })
-                  }
-                  className="w-8 h-8 rounded cursor-pointer"
-                />
+              <div>
+                <h4 className="text-xl font-extrabold tracking-tight">
+                  Sample Headline
+                </h4>
+                <p className="text-xs" style={{ color: activeTheme.textMuted }}>
+                  Minimal, theme-aware responsive typography
+                </p>
               </div>
             </div>
           </div>
+
+          {/* Preset Categories Tabs */}
+          <div>
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2.5">
+              Curated Designer Themes
+            </label>
+            <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-3">
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedCategory(c.id)}
+                  className={`px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors ${
+                    selectedCategory === c.id
+                      ? "bg-blue-600 text-white font-bold"
+                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                  }`}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {filteredThemes.map((theme) => {
+                const isSelected = activeTheme.id === theme.id;
+                return (
+                  <button
+                    key={theme.id}
+                    onClick={() => handleApplyTheme(theme)}
+                    className={`p-3.5 rounded-xl border-2 text-left transition-all relative flex flex-col justify-between h-28 cursor-pointer ${
+                      isSelected
+                        ? "border-blue-600 shadow-md ring-2 ring-blue-500/20"
+                        : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600"
+                    }`}
+                    style={{
+                      backgroundColor: theme.bg,
+                      color: theme.text,
+                    }}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-1.5">
+                        <div
+                          className="w-3 h-3 rounded-full shadow-sm"
+                          style={{ backgroundColor: theme.primary }}
+                        />
+                        <div
+                          className="w-3 h-3 rounded-full shadow-sm"
+                          style={{ backgroundColor: theme.accent }}
+                        />
+                      </div>
+                      {isSelected && (
+                        <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold truncate">
+                        {theme.name}
+                      </div>
+                      <div
+                        className="text-[10px] truncate"
+                        style={{ color: theme.textMuted }}
+                      >
+                        {theme.category}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Typography / Font Selection */}
+          <div className="border-t border-zinc-200 dark:border-zinc-800 pt-5">
+            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2.5">
+              Typography Style
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: "sans", label: "Inter (Modern Sans)", font: "font-sans" },
+                { id: "serif", label: "Editorial (Serif)", font: "font-serif" },
+                { id: "display", label: "Outfit (Display)", font: "font-sans" },
+                { id: "mono", label: "JetBrains (Mono)", font: "font-mono" },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() =>
+                    handleCustomColorChange("fontFamily", f.id as any)
+                  }
+                  className={`p-2.5 text-xs rounded-xl border text-left transition-all ${
+                    activeTheme.fontFamily === f.id
+                      ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold"
+                      : "border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700"
+                  }`}
+                >
+                  <span className={f.font}>{f.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Custom Color Tuning */}
+          <div className="border-t border-zinc-200 dark:border-zinc-800 pt-5">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                Fine-tune Colors
+              </label>
+              <button
+                onClick={() => handleApplyTheme(DEFAULT_THEME)}
+                className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1 font-medium"
+              >
+                <RefreshCw className="w-3 h-3" /> Reset
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { label: "Background", key: "bg" as const },
+                { label: "Card / Element Background", key: "cardBg" as const },
+                { label: "Primary Accent", key: "primary" as const },
+                { label: "Secondary Accent", key: "accent" as const },
+                { label: "Headline Text", key: "text" as const },
+                { label: "Body / Muted Text", key: "textMuted" as const },
+              ].map((item) => (
+                <div
+                  key={item.key}
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-800 text-xs"
+                >
+                  <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                    {item.label}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-zinc-400 text-[11px] uppercase">
+                      {activeTheme[item.key]}
+                    </span>
+                    <input
+                      type="color"
+                      value={activeTheme[item.key] || "#000000"}
+                      onChange={(e) =>
+                        handleCustomColorChange(item.key, e.target.value)
+                      }
+                      className="w-7 h-7 rounded-lg cursor-pointer border-0 bg-transparent p-0"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 flex items-center justify-end">
+          <button
+            onClick={onClose}
+            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors"
+          >
+            Done
+          </button>
         </div>
       </div>
     </div>
