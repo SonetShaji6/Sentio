@@ -8,6 +8,7 @@ import Presentation from "./models/Presentation";
 import QnAQuestion from "./models/QnAQuestion";
 import * as interactionService from "./services/interactionService";
 import * as reactionService from "./services/reactionService";
+import * as reportService from "./services/reportService";
 
 export function registerSocketHandlers(io: Server): void {
   io.on("connection", (socket: Socket) => {
@@ -34,6 +35,17 @@ function registerUserRoomEvents(socket: Socket): void {
 // ── Host Events ──
 
 function registerHostEvents(socket: Socket, io: Server): void {
+  socket.on("host-join", async ({ joinCode }) => {
+    try {
+      const cleanCode = (joinCode || "").trim().toUpperCase();
+      if (cleanCode) {
+        socket.join(cleanCode);
+      }
+    } catch (error) {
+      console.error("host-join error:", error);
+    }
+  });
+
   socket.on(
     SOCKET_EVENTS.HOST_START,
     async ({ experienceId, presentationId, joinCode }) => {
@@ -210,6 +222,13 @@ function registerHostEvents(socket: Socket, io: Server): void {
     // Stop reaction flush and do final persist
     if (session) {
       reactionService.stopPeriodicFlush(session._id.toString());
+
+      // Auto-generate session intelligence report and save to Knowledge Base
+      reportService
+        .generateAndSaveSessionReport(session._id.toString())
+        .catch((err) => {
+          console.error("Auto session report generation error:", err);
+        });
     }
   });
 
@@ -218,17 +237,23 @@ function registerHostEvents(socket: Socket, io: Server): void {
     SOCKET_EVENTS.HOST_LOCK_RESPONSES,
     async ({ joinCode, slideId }) => {
       try {
+        let correctAnswers: number[] = [];
         if (slideId) {
-          // Per-slide lock
           await Session.updateOne(
             { joinCode },
             { $set: { [`slideResponseLocks.${slideId}`]: true } },
           );
+          const slide = await Slide.findById(slideId);
+          if (slide && slide.type === "quiz") {
+            correctAnswers = slide.config?.correctAnswers || [];
+          }
         } else {
-          // Global lock
           await Session.updateOne({ joinCode }, { responseLocked: true });
         }
-        io.to(joinCode).emit(SOCKET_EVENTS.RESPONSE_LOCK, { slideId });
+        io.to(joinCode).emit(SOCKET_EVENTS.RESPONSE_LOCK, {
+          slideId,
+          correctAnswers,
+        });
       } catch (error) {
         console.error("lock-responses error:", error);
       }
@@ -355,6 +380,12 @@ function registerAudienceEvents(socket: Socket, io: Server): void {
       io.to(cleanCode).emit(SOCKET_EVENTS.AUDIENCE_UPDATED, {
         count: session.participants.filter((p) => p.isOnline).length,
       });
+
+      // Broadcast updated live leaderboard with all joined users
+      const leaderboard = await interactionService.getLeaderboard(
+        session._id.toString(),
+      );
+      io.to(cleanCode).emit(SOCKET_EVENTS.LEADERBOARD_UPDATE, leaderboard);
     } catch (error) {
       console.error("join-session error:", error);
       socket.emit(SOCKET_EVENTS.JOIN_ERROR, "An error occurred while joining.");
@@ -402,6 +433,8 @@ function registerInteractionEvents(socket: Socket, io: Server): void {
                 type: "quiz",
                 isCorrect: result.isCorrect,
                 scoreAwarded: result.scoreAwarded,
+                correctAnswers: result.correctAnswers,
+                selectedOptions: payload.selectedOptions,
               });
 
               // Update leaderboard

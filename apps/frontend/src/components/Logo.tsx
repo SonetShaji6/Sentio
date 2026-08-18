@@ -34,6 +34,7 @@ export function Logo({
     return (
       <Link
         href="/"
+        prefetch={false}
         className="inline-block hover:opacity-90 transition-opacity"
       >
         {content}

@@ -1,7 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Check, X, Clock, Trophy } from "lucide-react";
+import {
+  Check,
+  X,
+  Clock,
+  Trophy,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
 
 interface QuizInteractionProps {
   slideId: string;
@@ -10,14 +17,22 @@ interface QuizInteractionProps {
   hasSubmitted: boolean;
   responseLocked: boolean;
   onSubmit: (selectedOptions: number[], responseTimeMs: number) => void;
-  feedback?: { isCorrect: boolean; scoreAwarded: number } | null;
+  feedback?: {
+    isCorrect?: boolean;
+    scoreAwarded?: number;
+    correctAnswers?: number[];
+    selectedOptions?: number[];
+  } | null;
+  revealedCorrectAnswers?: number[];
 }
 
 const OPTION_COLORS = [
-  "bg-blue-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-rose-500",
+  "bg-blue-600 dark:bg-blue-500",
+  "bg-emerald-600 dark:bg-emerald-500",
+  "bg-amber-600 dark:bg-amber-500",
+  "bg-rose-600 dark:bg-rose-500",
+  "bg-purple-600 dark:bg-purple-500",
+  "bg-cyan-600 dark:bg-cyan-500",
 ];
 
 export function QuizInteraction({
@@ -28,6 +43,7 @@ export function QuizInteraction({
   responseLocked,
   onSubmit,
   feedback,
+  revealedCorrectAnswers = [],
 }: QuizInteractionProps) {
   const [selected, setSelected] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState(timer || 0);
@@ -53,13 +69,20 @@ export function QuizInteraction({
     };
   }, [timer, hasSubmitted, slideId]);
 
+  const isTimedOut = Boolean(timer && timer > 0 && timeLeft <= 0);
+  const isFinished = hasSubmitted || isTimedOut || responseLocked;
+
+  // Determine correct answer indices
+  const correctIndices: number[] =
+    feedback?.correctAnswers || revealedCorrectAnswers || [];
+
   const handleSelect = (index: number) => {
-    if (hasSubmitted || responseLocked || (timer && timeLeft <= 0)) return;
+    if (isFinished) return;
     setSelected(index);
   };
 
   const handleSubmit = () => {
-    if (selected === null || hasSubmitted || responseLocked) return;
+    if (selected === null || isFinished) return;
     const responseTimeMs = Date.now() - startTime;
     if (timerRef.current) clearInterval(timerRef.current);
     onSubmit([selected], responseTimeMs);
@@ -67,112 +90,199 @@ export function QuizInteraction({
 
   const timerPercent = timer ? (timeLeft / timer) * 100 : 100;
 
+  // Format correct answers label
+  const correctLabels = correctIndices
+    .map((idx) => {
+      const char = String.fromCharCode(65 + idx);
+      const text = options[idx];
+      return text ? `${char} (${text})` : char;
+    })
+    .join(", ");
+
   return (
     <div className="w-full space-y-4">
-      {/* Timer */}
-      {timer && timer > 0 && !hasSubmitted && (
-        <div className="flex items-center gap-3 mb-2">
-          <Clock
-            className={`w-5 h-5 ${timeLeft <= 5 ? "text-red-500 animate-pulse" : "text-gray-400"}`}
-          />
-          <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-1000 ${timeLeft <= 5 ? "bg-red-500" : "bg-blue-500"}`}
-              style={{ width: `${timerPercent}%` }}
+      {/* Active Timer Bar */}
+      {timer &&
+        timer > 0 &&
+        !hasSubmitted &&
+        !responseLocked &&
+        timeLeft > 0 && (
+          <div className="flex items-center gap-3 mb-2 bg-zinc-100 dark:bg-zinc-800/80 px-4 py-2.5 rounded-2xl border border-zinc-200 dark:border-zinc-700/60">
+            <Clock
+              className={`w-5 h-5 ${
+                timeLeft <= 5 ? "text-red-500 animate-pulse" : "text-blue-500"
+              }`}
             />
-          </div>
-          <span
-            className={`text-lg font-bold min-w-[2ch] ${timeLeft <= 5 ? "text-red-500" : "text-gray-600 dark:text-gray-300"}`}
-          >
-            {timeLeft}s
-          </span>
-        </div>
-      )}
-
-      {/* Options */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {options.map((opt, i) => (
-          <button
-            key={i}
-            onClick={() => handleSelect(i)}
-            disabled={
-              hasSubmitted || responseLocked || (timer ? timeLeft <= 0 : false)
-            }
-            className={`py-5 px-6 rounded-2xl font-medium text-lg transition-all flex items-center gap-3 ${
-              selected === i
-                ? "ring-2 ring-white ring-offset-2 ring-offset-gray-950 scale-[1.02]"
-                : "hover:scale-[1.01]"
-            } ${OPTION_COLORS[i % OPTION_COLORS.length]} text-white ${
-              hasSubmitted || responseLocked
-                ? "opacity-70 cursor-not-allowed"
-                : ""
-            }`}
-          >
-            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center font-bold text-sm">
-              {String.fromCharCode(65 + i)}
+            <div className="flex-1 h-2.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-1000 ${
+                  timeLeft <= 5 ? "bg-red-500" : "bg-blue-500"
+                }`}
+                style={{ width: `${timerPercent}%` }}
+              />
             </div>
-            <span>{opt || `Option ${i + 1}`}</span>
-          </button>
-        ))}
+            <span
+              className={`text-lg font-black min-w-[2.5ch] text-right ${
+                timeLeft <= 5
+                  ? "text-red-500"
+                  : "text-zinc-700 dark:text-zinc-200"
+              }`}
+            >
+              {timeLeft}s
+            </span>
+          </div>
+        )}
+
+      {/* Options Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {options.map((opt, i) => {
+          const isThisSelected =
+            selected === i || feedback?.selectedOptions?.includes(i);
+          const isThisCorrect = correctIndices.includes(i);
+
+          let optionStyle = OPTION_COLORS[i % OPTION_COLORS.length];
+          let borderRing = "";
+          let iconBadge = null;
+
+          if (isFinished && correctIndices.length > 0) {
+            if (isThisCorrect) {
+              optionStyle =
+                "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20";
+              borderRing =
+                "ring-4 ring-emerald-400 ring-offset-2 dark:ring-offset-zinc-900";
+              iconBadge = (
+                <span className="flex items-center gap-1 text-xs font-bold bg-emerald-700 text-white px-2 py-0.5 rounded-md ml-auto">
+                  <Check className="w-3.5 h-3.5" /> Correct
+                </span>
+              );
+            } else if (isThisSelected && !isThisCorrect) {
+              optionStyle = "bg-rose-600 text-white opacity-80";
+              borderRing =
+                "ring-4 ring-rose-400 ring-offset-2 dark:ring-offset-zinc-900";
+              iconBadge = (
+                <span className="flex items-center gap-1 text-xs font-bold bg-rose-700 text-white px-2 py-0.5 rounded-md ml-auto">
+                  <X className="w-3.5 h-3.5" /> Your Choice
+                </span>
+              );
+            } else {
+              optionStyle = "bg-zinc-700/60 text-zinc-400 opacity-40";
+            }
+          } else if (selected === i) {
+            borderRing =
+              "ring-4 ring-white ring-offset-2 ring-offset-zinc-950 scale-[1.02]";
+          }
+
+          return (
+            <button
+              key={i}
+              onClick={() => handleSelect(i)}
+              disabled={isFinished}
+              className={`py-4 px-5 rounded-2xl font-semibold text-lg transition-all flex items-center gap-3 text-left ${optionStyle} ${borderRing} ${
+                isFinished
+                  ? "cursor-default"
+                  : "hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+              }`}
+            >
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center font-bold text-sm shrink-0">
+                {String.fromCharCode(65 + i)}
+              </div>
+              <span className="flex-1 line-clamp-2">
+                {opt || `Option ${i + 1}`}
+              </span>
+              {iconBadge}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Submit */}
-      {!hasSubmitted && !responseLocked && (
+      {/* Submit Button */}
+      {!isFinished && (
         <button
           onClick={handleSubmit}
-          disabled={selected === null || (timer ? timeLeft <= 0 : false)}
-          className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold rounded-2xl transition-all"
+          disabled={selected === null}
+          className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-zinc-400 disabled:to-zinc-500 disabled:cursor-not-allowed text-white font-bold text-lg rounded-2xl shadow-md hover:shadow-lg transition-all active:scale-[0.99]"
         >
-          Submit Answer
+          {selected === null ? "Select an Answer Above" : "Submit Answer"}
         </button>
       )}
 
-      {/* Feedback */}
+      {/* Result / Feedback Card */}
       {hasSubmitted && feedback && (
         <div
-          className={`p-6 rounded-2xl text-center ${
+          className={`p-6 rounded-3xl text-center border transition-all ${
             feedback.isCorrect
-              ? "bg-emerald-500/10 border border-emerald-500/30"
-              : "bg-rose-500/10 border border-rose-500/30"
+              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-100"
+              : "bg-rose-500/10 border-rose-500/30 text-rose-950 dark:text-rose-100"
           }`}
         >
           <div className="flex justify-center mb-3">
             {feedback.isCorrect ? (
-              <div className="w-16 h-16 rounded-full bg-emerald-500 flex items-center justify-center">
-                <Check className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                <Check className="w-9 h-9 text-white stroke-[3]" />
               </div>
             ) : (
-              <div className="w-16 h-16 rounded-full bg-rose-500 flex items-center justify-center">
-                <X className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 rounded-2xl bg-rose-500 flex items-center justify-center shadow-lg shadow-rose-500/30">
+                <X className="w-9 h-9 text-white stroke-[3]" />
               </div>
             )}
           </div>
           <h3
-            className={`text-2xl font-bold ${feedback.isCorrect ? "text-emerald-500" : "text-rose-500"}`}
+            className={`text-2xl font-black ${
+              feedback.isCorrect
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400"
+            }`}
           >
-            {feedback.isCorrect ? "Correct!" : "Incorrect"}
+            {feedback.isCorrect
+              ? "Brilliant! That's Correct!"
+              : "Oops! Incorrect"}
           </h3>
-          {feedback.scoreAwarded > 0 && (
-            <div className="flex items-center justify-center gap-2 mt-2 text-amber-500">
-              <Trophy className="w-5 h-5" />
-              <span className="font-bold text-lg">
-                +{feedback.scoreAwarded} points
+
+          {correctLabels && (
+            <p className="text-sm font-medium mt-2 text-zinc-600 dark:text-zinc-300">
+              Correct Answer:{" "}
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                {correctLabels}
               </span>
-            </div>
+            </p>
           )}
+
+          {typeof feedback.scoreAwarded === "number" &&
+            feedback.scoreAwarded > 0 && (
+              <div className="inline-flex items-center justify-center gap-2 mt-3 px-4 py-1.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30">
+                <Trophy className="w-5 h-5 text-amber-500" />
+                <span className="font-extrabold text-base">
+                  +{feedback.scoreAwarded} Points Earned
+                </span>
+              </div>
+            )}
         </div>
       )}
 
-      {responseLocked && !hasSubmitted && (
-        <p className="text-center text-amber-500 font-medium">
-          Responses are currently locked
-        </p>
-      )}
-
-      {timer && timeLeft <= 0 && !hasSubmitted && (
-        <p className="text-center text-red-500 font-bold text-lg">
-          Time&apos;s up!
-        </p>
+      {/* Timeout / Response Locked (without submission) */}
+      {!hasSubmitted && (isTimedOut || responseLocked) && (
+        <div className="p-6 rounded-3xl text-center bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700">
+          <div className="flex justify-center mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-500">
+              <Clock className="w-6 h-6" />
+            </div>
+          </div>
+          <h3 className="text-xl font-bold text-zinc-900 dark:text-white">
+            {isTimedOut ? "Time's Up!" : "Responses are Locked"}
+          </h3>
+          {correctLabels ? (
+            <p className="text-sm font-medium mt-2 text-zinc-600 dark:text-zinc-300">
+              The correct answer was:{" "}
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                {correctLabels}
+              </span>
+            </p>
+          ) : (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+              Presenter has locked or concluded answers for this question.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

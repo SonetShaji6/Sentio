@@ -3,6 +3,9 @@ import * as analyticsService from "./analyticsService";
 import * as recommendationService from "./recommendationService";
 import { uploadFileToAzure } from "./azure";
 import Report, { IReport } from "../models/Report";
+import FileResource from "../models/FileResource";
+import Presentation from "../models/Presentation";
+import Session from "../models/Session";
 import User from "../models/User";
 import { sendReportEmail } from "./email";
 
@@ -439,5 +442,98 @@ export async function processReportJob(reportId: string) {
     report.status = "FAILED";
     report.error = error.message || "Failed to compile report";
     await report.save();
+  }
+}
+
+export async function generateAndSaveSessionReport(sessionId: string) {
+  try {
+    const session = await Session.findById(sessionId);
+    if (!session) return null;
+
+    const presentation = session.presentationId
+      ? await Presentation.findById(session.presentationId)
+      : null;
+
+    const ownerId = presentation?.owner || session.hostSocketId;
+    if (!ownerId) return null;
+
+    const reportTitle = `Session Report - ${presentation?.title || "Presentation"} (${session.joinCode})`;
+
+    const report = new Report({
+      user: ownerId,
+      presentationId: presentation?._id || session.presentationId,
+      sessionId: session._id,
+      title: reportTitle,
+      type: "full",
+      status: "PROCESSING",
+      fileFormat: "pdf",
+    });
+    await report.save();
+
+    const data = await generateReportData(
+      session._id.toString(),
+      ownerId.toString(),
+    );
+
+    const buffer = await buildPDFReport(data);
+    const fileName = `session-report-${session.joinCode}-${Date.now()}.pdf`;
+
+    const fileUrl = await uploadFileToAzure(
+      "reports",
+      fileName,
+      buffer,
+      "application/pdf",
+    );
+
+    report.fileUrl = fileUrl;
+    report.fileSize = buffer.length;
+    report.status = "COMPLETED";
+    await report.save();
+
+    // Save directly to Knowledge Base (FileResource)
+    let fileResource = null;
+    try {
+      fileResource = await FileResource.create({
+        originalName: `${reportTitle}.pdf`,
+        storedName: fileName,
+        mimeType: "application/pdf",
+        size: buffer.length,
+        owner: ownerId,
+        presentationId: presentation?._id,
+        category: "document",
+        storagePath: `reports/${fileName}`,
+        fileUrl: fileUrl,
+        status: "READY",
+        extractionStatus: "COMPLETED",
+        extractedText: `Sentio Intelligence Session Report for "${presentation?.title || "Presentation"}". Join Code: ${session.joinCode}. Total Attendees: ${session.participants?.length || 0}. Engagement: ${data.engagement?.score || 0}/100. Key Topics: ${(data.aiInsights?.topicDetection || []).join(", ")}.`,
+        extractedMetadata: {
+          slideCount: session.participants?.length || 0,
+          wordCount: 120,
+          keywords: [
+            "session-report",
+            "intelligence",
+            session.joinCode,
+            presentation?.title || "presentation",
+          ],
+        },
+        version: 1,
+        isLatestVersion: true,
+      });
+    } catch (fileErr) {
+      console.warn("FileResource creation warning:", fileErr);
+    }
+
+    if (data.presenterEmail) {
+      try {
+        await sendReportEmail(data.presenterEmail, report.title, fileUrl);
+      } catch (e) {
+        console.warn("Failed to send report email:", e);
+      }
+    }
+
+    return { report, fileResource };
+  } catch (error) {
+    console.error("generateAndSaveSessionReport error:", error);
+    return null;
   }
 }

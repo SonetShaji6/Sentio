@@ -31,6 +31,8 @@ export function Testimonial({
         <img
           src={avatarUrl}
           alt={author}
+          loading="lazy"
+          decoding="async"
           className="w-11 h-11 rounded-full object-cover bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700"
         />
         <div>

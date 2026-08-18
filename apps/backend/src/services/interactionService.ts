@@ -138,7 +138,8 @@ export async function getPollResults(
   slideId: string,
 ): Promise<any> {
   const slide = await Slide.findById(slideId);
-  const optionsCount = slide?.config?.options?.length || 0;
+  const options = slide?.config?.options || [];
+  const optionsCount = options.length;
 
   const interactions = await Interaction.find({
     sessionId,
@@ -171,6 +172,7 @@ export async function getPollResults(
   return {
     slideId,
     totalResponses,
+    options,
     optionCounts,
     optionPercentages,
     participationPercentage,
@@ -190,6 +192,7 @@ export async function submitQuizResponse(
   result?: any;
   scoreAwarded?: number;
   isCorrect?: boolean;
+  correctAnswers?: number[];
 }> {
   const { session, slide, participant, error } = await validateSessionAndSlide(
     joinCode,
@@ -218,19 +221,18 @@ export async function submitQuizResponse(
 
   // Check timer — if timer is set and responseTime exceeds it, reject
   const timeLimit = slide.config?.timer;
-  if (timeLimit && responseTimeMs > timeLimit * 1000 + 2000) {
-    // +2s grace
+  if (timeLimit && responseTimeMs > timeLimit * 1000 + 3000) {
     return { error: "Time expired for this question" };
   }
 
   // Validate answer
-  const correctAnswers = slide.config?.correctAnswers || [];
+  const correctAnswers: number[] = slide.config?.correctAnswers || [];
   const isCorrect =
     correctAnswers.length > 0 &&
     selectedOptions.length === correctAnswers.length &&
     selectedOptions.every((o: number) => correctAnswers.includes(o));
 
-  // Time-based scoring: 1000 - (timeTaken/timeLimit * 500), min 100 if correct
+  // Time-based scoring
   let scoreAwarded = 0;
   if (isCorrect) {
     const basePoints = slide.config?.points || 1000;
@@ -266,13 +268,18 @@ export async function submitQuizResponse(
   }
 
   const result = await getQuizResults(session._id.toString(), slideId);
-  return { result, scoreAwarded, isCorrect };
+  return { result, scoreAwarded, isCorrect, correctAnswers };
 }
 
 export async function getQuizResults(
   sessionId: string,
   slideId: string,
 ): Promise<any> {
+  const slide = await Slide.findById(slideId);
+  const options: string[] = slide?.config?.options || [];
+  const correctAnswers: number[] = slide?.config?.correctAnswers || [];
+  const optionsCount = options.length;
+
   const interactions = await Interaction.find({
     sessionId,
     slideId,
@@ -292,6 +299,20 @@ export async function getQuizResults(
   const averageTimeMs =
     totalResponses > 0 ? Math.round(totalTime / totalResponses) : 0;
 
+  // Option distribution breakdown
+  const optionCounts = new Array(optionsCount).fill(0);
+  for (const interaction of interactions) {
+    const selected = interaction.payload?.selectedOptions || [];
+    for (const idx of selected) {
+      if (idx >= 0 && idx < optionsCount) {
+        optionCounts[idx]++;
+      }
+    }
+  }
+  const optionPercentages = optionCounts.map((c) =>
+    totalResponses > 0 ? Math.round((c / totalResponses) * 100) : 0,
+  );
+
   return {
     slideId,
     totalResponses,
@@ -299,6 +320,10 @@ export async function getQuizResults(
     incorrectCount,
     accuracy,
     averageTimeMs,
+    options,
+    correctAnswers,
+    optionCounts,
+    optionPercentages,
   };
 }
 
@@ -306,14 +331,10 @@ export async function getLeaderboard(sessionId: string): Promise<any[]> {
   const session = await Session.findById(sessionId);
   if (!session) return [];
 
-  // Get all quiz interactions grouped by participant
   const interactions = await Interaction.find({
     sessionId,
     type: "quiz",
   });
-
-  // Count quiz slides
-  const quizSlideIds = new Set(interactions.map((i) => i.slideId.toString()));
 
   const participantMap = new Map<
     string,
@@ -322,37 +343,58 @@ export async function getLeaderboard(sessionId: string): Promise<any[]> {
 
   for (const interaction of interactions) {
     const key = interaction.displayName;
-    const existing = participantMap.get(key) || {
+    const current = participantMap.get(key) || {
       score: 0,
       correctCount: 0,
       totalTime: 0,
       count: 0,
     };
-    existing.score += interaction.score || 0;
-    existing.correctCount += interaction.isCorrect ? 1 : 0;
-    existing.totalTime += interaction.responseTimeMs || 0;
-    existing.count += 1;
-    participantMap.set(key, existing);
+    current.score += interaction.score || 0;
+    if (interaction.isCorrect) current.correctCount++;
+    current.totalTime += interaction.responseTimeMs || 0;
+    current.count++;
+    participantMap.set(key, current);
   }
 
-  const leaderboard = Array.from(participantMap.entries())
+  // Also include participants with 0 interactions
+  for (const p of session.participants || []) {
+    if (!participantMap.has(p.displayName)) {
+      participantMap.set(p.displayName, {
+        score: p.score || 0,
+        correctCount: 0,
+        totalTime: 0,
+        count: 0,
+      });
+    }
+  }
+
+  const sorted = Array.from(participantMap.entries())
     .map(([displayName, data]) => ({
       displayName,
       score: data.score,
       correctCount: data.correctCount,
-      totalQuestions: quizSlideIds.size,
-      averageTimeMs:
+      accuracy:
+        data.count > 0 ? Math.round((data.correctCount / data.count) * 100) : 0,
+      averageResponseTimeMs:
         data.count > 0 ? Math.round(data.totalTime / data.count) : 0,
-      rank: 0,
     }))
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.correctCount !== a.correctCount)
+        return b.correctCount - a.correctCount;
+      return a.averageResponseTimeMs - b.averageResponseTimeMs;
+    });
 
-  // Assign ranks
-  leaderboard.forEach((entry, idx) => {
-    entry.rank = idx + 1;
+  let currentRank = 1;
+  return sorted.map((entry, index) => {
+    if (index > 0 && entry.score < sorted[index - 1].score) {
+      currentRank = index + 1;
+    }
+    return {
+      ...entry,
+      rank: currentRank,
+    };
   });
-
-  return leaderboard;
 }
 
 // ── Word Cloud ──
@@ -361,9 +403,9 @@ export async function submitWordCloudWord(
   joinCode: string,
   slideId: string,
   socketId: string,
-  word: string,
+  rawWord: string,
 ): Promise<{ error?: string; result?: any }> {
-  const { session, slide, participant, error } = await validateSessionAndSlide(
+  const { session, slide, error } = await validateSessionAndSlide(
     joinCode,
     slideId,
     socketId,
@@ -371,11 +413,10 @@ export async function submitWordCloudWord(
   if (error) return { error };
 
   if (slide.type !== "wordcloud") {
-    return { error: "This slide does not accept word cloud responses" };
+    return { error: "This slide does not accept word cloud submissions" };
   }
 
-  // Validate word
-  const trimmedWord = word.trim();
+  const trimmedWord = (rawWord || "").trim();
   if (!trimmedWord) {
     return { error: "Word cannot be empty" };
   }
@@ -383,17 +424,15 @@ export async function submitWordCloudWord(
     return { error: "Word is too long (max 50 characters)" };
   }
 
-  // Sanitize
   const sanitizedWord = sanitizeHtml(trimmedWord);
+  const participant = session.participants.find((p) => p.socketId === socketId);
+  const participantId = `${session._id}-${participant?.displayName || "anon"}`;
 
-  const participantId = `${session._id}-${participant.displayName}`;
-
-  // Unlimited submissions allowed — just store
   await Interaction.create({
     sessionId: session._id,
     slideId,
     participantId,
-    displayName: participant.displayName,
+    displayName: participant?.displayName || "Anonymous",
     type: "wordcloud",
     payload: {
       word: sanitizedWord,
@@ -415,7 +454,6 @@ export async function getWordCloudResults(
     type: "wordcloud",
   });
 
-  // Aggregate by normalized word
   const wordMap = new Map<string, { displayWord: string; count: number }>();
   for (const interaction of interactions) {
     const normalized = interaction.payload?.normalizedWord || "";
@@ -449,7 +487,7 @@ export async function submitOpenTextResponse(
   joinCode: string,
   slideId: string,
   socketId: string,
-  text: string,
+  rawText: string,
 ): Promise<{ error?: string; result?: any }> {
   const { session, slide, participant, error } = await validateSessionAndSlide(
     joinCode,
@@ -459,33 +497,21 @@ export async function submitOpenTextResponse(
   if (error) return { error };
 
   if (slide.type !== "opentext") {
-    return { error: "This slide does not accept text responses" };
+    return { error: "This slide does not accept open text responses" };
   }
 
-  const trimmedText = text.trim();
+  const trimmedText = (rawText || "").trim();
   if (!trimmedText) {
     return { error: "Response cannot be empty" };
   }
 
   const charLimit = slide.config?.charLimit || 500;
   if (trimmedText.length > charLimit) {
-    return { error: `Response is too long (max ${charLimit} characters)` };
+    return { error: `Response exceeds ${charLimit} character limit` };
   }
 
   const sanitizedText = sanitizeHtml(trimmedText);
   const participantId = `${session._id}-${participant.displayName}`;
-
-  // Check duplicate
-  const existing = await Interaction.findOne({
-    sessionId: session._id,
-    slideId,
-    participantId,
-    type: "opentext",
-  });
-
-  if (existing) {
-    return { error: "You have already submitted a response" };
-  }
 
   const interaction = await Interaction.create({
     sessionId: session._id,
@@ -494,6 +520,7 @@ export async function submitOpenTextResponse(
     displayName: participant.displayName,
     type: "opentext",
     payload: { text: sanitizedText },
+    status: "approved",
   });
 
   return {
@@ -501,7 +528,7 @@ export async function submitOpenTextResponse(
       id: interaction._id.toString(),
       displayName: participant.displayName,
       text: sanitizedText,
-      status: "visible",
+      status: "approved",
       createdAt: interaction.createdAt.toISOString(),
     },
   };
@@ -587,7 +614,6 @@ export async function submitRating(
 
   const participantId = `${session._id}-${participant.displayName}`;
 
-  // Check duplicate
   const existing = await Interaction.findOne({
     sessionId: session._id,
     slideId,

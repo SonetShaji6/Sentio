@@ -35,6 +35,7 @@ interface SlideEditorProps {
   joinCode?: string;
   isHost?: boolean;
   showToolbar?: boolean;
+  leaderboard?: any[];
 }
 
 export function SlideEditor({
@@ -43,6 +44,7 @@ export function SlideEditor({
   joinCode = "SENTIO",
   isHost = false,
   showToolbar = true,
+  leaderboard,
 }: SlideEditorProps) {
   const [zoom, setZoom] = useState<"fit" | number>("fit");
 
@@ -1081,9 +1083,21 @@ export function SlideEditor({
           </div>
         );
 
-      case "leaderboard":
+      case "leaderboard": {
+        const hasLiveLeaderboard = leaderboard && leaderboard.length > 0;
+        const first = hasLiveLeaderboard
+          ? leaderboard[0]
+          : { displayName: "Sarah K.", score: 3400 };
+        const second = hasLiveLeaderboard
+          ? leaderboard[1]
+          : { displayName: "Alex M.", score: 2850 };
+        const third = hasLiveLeaderboard
+          ? leaderboard[2]
+          : { displayName: "David L.", score: 2410 };
+        const runnersUp = hasLiveLeaderboard ? leaderboard.slice(3, 7) : [];
+
         return (
-          <div className="flex flex-col h-full p-24 justify-between text-center">
+          <div className="flex flex-col h-full p-20 justify-between text-center">
             <div>
               <span
                 className="px-4 py-1.5 rounded-full text-lg font-bold uppercase tracking-wider inline-flex items-center gap-2 mb-4"
@@ -1092,102 +1106,140 @@ export function SlideEditor({
                   color: primaryColor,
                 }}
               >
-                <Trophy className="w-5 h-5 text-amber-400" /> Leaderboard
+                <Trophy className="w-5 h-5 text-amber-400" /> Live Leaderboard
               </span>
               <h1
                 className={`${titleFontSizeClass} font-extrabold tracking-tight mb-2`}
                 style={{ color: textColor }}
               >
-                {slide.title || "Top Scorers"}
+                {slide.title || "Top Performers"}
               </h1>
+              {hasLiveLeaderboard && (
+                <p className="text-xl font-medium" style={{ color: textMuted }}>
+                  {leaderboard.length} participant
+                  {leaderboard.length === 1 ? "" : "s"} connected
+                </p>
+              )}
             </div>
 
             {/* Podium */}
-            <div className="flex items-end justify-center gap-8 my-auto max-w-4xl mx-auto w-full pt-8">
+            <div className="flex items-end justify-center gap-6 my-auto max-w-4xl mx-auto w-full pt-4">
               {/* 2nd Place */}
-              <div className="flex-1 flex flex-col items-center">
-                <div
-                  className="text-2xl font-bold mb-2"
-                  style={{ color: textColor }}
-                >
-                  Alex M.
+              {second && (
+                <div className="flex-1 flex flex-col items-center">
+                  <div
+                    className="text-2xl font-bold mb-2 truncate max-w-[200px]"
+                    style={{ color: textColor }}
+                  >
+                    {second.displayName}
+                  </div>
+                  <div
+                    className="text-xl mb-3 font-mono"
+                    style={{ color: textMuted }}
+                  >
+                    {second.score?.toLocaleString() || 0} pts
+                  </div>
+                  <div
+                    className="w-full h-44 rounded-t-3xl border-t-4 border-l-2 border-r-2 flex flex-col items-center justify-center text-4xl font-black shadow-lg"
+                    style={{
+                      backgroundColor: cardBg,
+                      borderColor: "#94A3B8",
+                      color: "#94A3B8",
+                    }}
+                  >
+                    🥈 2nd
+                  </div>
                 </div>
-                <div
-                  className="text-xl mb-3 font-mono"
-                  style={{ color: textMuted }}
-                >
-                  2,850 pts
-                </div>
-                <div
-                  className="w-full h-44 rounded-t-3xl border-t-4 border-l-2 border-r-2 flex flex-col items-center justify-center text-4xl font-black shadow-lg"
-                  style={{
-                    backgroundColor: cardBg,
-                    borderColor: "#94A3B8",
-                    color: "#94A3B8",
-                  }}
-                >
-                  🥈 2nd
-                </div>
-              </div>
+              )}
 
               {/* 1st Place */}
-              <div className="flex-1 flex flex-col items-center">
-                <div
-                  className="text-3xl font-extrabold mb-2"
-                  style={{ color: textColor }}
-                >
-                  Sarah K. 👑
+              {first && (
+                <div className="flex-1 flex flex-col items-center">
+                  <div
+                    className="text-3xl font-extrabold mb-2 truncate max-w-[220px]"
+                    style={{ color: textColor }}
+                  >
+                    {first.displayName} 👑
+                  </div>
+                  <div
+                    className="text-2xl mb-3 font-mono font-bold"
+                    style={{ color: primaryColor }}
+                  >
+                    {first.score?.toLocaleString() || 0} pts
+                  </div>
+                  <div
+                    className="w-full h-64 rounded-t-3xl border-t-4 border-l-2 border-r-2 flex flex-col items-center justify-center text-5xl font-black shadow-2xl"
+                    style={{
+                      backgroundColor: `${primaryColor}20`,
+                      borderColor: primaryColor,
+                      color: primaryColor,
+                    }}
+                  >
+                    🥇 1st
+                  </div>
                 </div>
-                <div
-                  className="text-2xl mb-3 font-mono font-bold"
-                  style={{ color: primaryColor }}
-                >
-                  3,400 pts
-                </div>
-                <div
-                  className="w-full h-64 rounded-t-3xl border-t-4 border-l-2 border-r-2 flex flex-col items-center justify-center text-5xl font-black shadow-2xl"
-                  style={{
-                    backgroundColor: `${primaryColor}20`,
-                    borderColor: primaryColor,
-                    color: primaryColor,
-                  }}
-                >
-                  🥇 1st
-                </div>
-              </div>
+              )}
 
               {/* 3rd Place */}
-              <div className="flex-1 flex flex-col items-center">
-                <div
-                  className="text-2xl font-bold mb-2"
-                  style={{ color: textColor }}
-                >
-                  David L.
+              {third && (
+                <div className="flex-1 flex flex-col items-center">
+                  <div
+                    className="text-2xl font-bold mb-2 truncate max-w-[200px]"
+                    style={{ color: textColor }}
+                  >
+                    {third.displayName}
+                  </div>
+                  <div
+                    className="text-xl mb-3 font-mono"
+                    style={{ color: textMuted }}
+                  >
+                    {third.score?.toLocaleString() || 0} pts
+                  </div>
+                  <div
+                    className="w-full h-36 rounded-t-3xl border-t-4 border-l-2 border-r-2 flex flex-col items-center justify-center text-4xl font-black shadow-md"
+                    style={{
+                      backgroundColor: cardBg,
+                      borderColor: "#D97706",
+                      color: "#D97706",
+                    }}
+                  >
+                    🥉 3rd
+                  </div>
                 </div>
-                <div
-                  className="text-xl mb-3 font-mono"
-                  style={{ color: textMuted }}
-                >
-                  2,410 pts
-                </div>
-                <div
-                  className="w-full h-36 rounded-t-3xl border-t-4 border-l-2 border-r-2 flex flex-col items-center justify-center text-4xl font-black shadow-md"
-                  style={{
-                    backgroundColor: cardBg,
-                    borderColor: "#D97706",
-                    color: "#D97706",
-                  }}
-                >
-                  🥉 3rd
-                </div>
-              </div>
+              )}
             </div>
 
-            <div className="text-xl font-medium" style={{ color: textMuted }}>
-              Rankings update automatically after each quiz question
+            {/* Runners Up List */}
+            {runnersUp.length > 0 && (
+              <div className="flex items-center justify-center gap-4 flex-wrap max-w-4xl mx-auto w-full my-3">
+                {runnersUp.map((entry, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2.5 px-4 py-2 rounded-xl border text-sm font-semibold shadow-xs"
+                    style={{
+                      backgroundColor: cardBg,
+                      borderColor,
+                      color: textColor,
+                    }}
+                  >
+                    <span className="w-5 h-5 rounded-md bg-zinc-800 text-zinc-300 text-xs flex items-center justify-center font-bold">
+                      {entry.rank || idx + 4}
+                    </span>
+                    <span>{entry.displayName}</span>
+                    <span style={{ color: primaryColor }}>
+                      {entry.score || 0} pts
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="text-lg font-medium" style={{ color: textMuted }}>
+              Rankings update live as participants score in quiz challenges
             </div>
           </div>
         );
+      }
 
       case "thankyou":
         return (

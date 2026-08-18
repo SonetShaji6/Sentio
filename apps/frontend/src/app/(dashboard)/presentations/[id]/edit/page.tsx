@@ -234,6 +234,82 @@ export default function PresentationBuilder() {
     const token = getAccessToken();
     if (!token) return;
 
+    const defaultsByType: Record<
+      string,
+      { title: string; description?: string; config?: any }
+    > = {
+      thankyou: {
+        title: "Thank You!",
+        description: "Questions, feedback, or further discussion?",
+        config: { callToAction: "sentio.app" },
+      },
+      title: {
+        title: "Presentation Title",
+        description: "Subtitle or presenter name",
+        config: {},
+      },
+      information: {
+        title: "Key Takeaways",
+        description: "Summary of main concepts",
+        config: {
+          bulletPoints: [
+            "First key takeaway",
+            "Second important concept",
+            "Final summary point",
+          ],
+        },
+      },
+      quiz: {
+        title: "Quiz Question",
+        description: "Select the correct option",
+        config: {
+          options: ["Option A", "Option B", "Option C", "Option D"],
+          correctAnswers: [0],
+          timer: 30,
+          points: 1000,
+        },
+      },
+      poll: {
+        title: "Audience Poll",
+        description: "Cast your vote below",
+        config: {
+          options: ["Option A", "Option B", "Option C"],
+          allowMultiple: false,
+        },
+      },
+      imagepoll: {
+        title: "Visual Poll",
+        description: "Choose your preferred image",
+        config: { options: ["Option 1", "Option 2"], allowMultiple: false },
+      },
+      wordcloud: {
+        title: "Word Cloud",
+        description: "Submit in 1-2 words",
+        config: {},
+      },
+      rating: {
+        title: "Session Rating",
+        description: "Rate your experience from 1 to 5 stars",
+        config: { ratingRange: { min: 1, max: 5 } },
+      },
+      opentext: {
+        title: "Open Discussion",
+        description: "Share your thoughts or questions",
+        config: { charLimit: 500 },
+      },
+      leaderboard: {
+        title: "Top Performers",
+        description: "Current standings and rankings",
+        config: {},
+      },
+    };
+
+    const preset = defaultsByType[type] || {
+      title: `New ${type.charAt(0).toUpperCase() + type.slice(1)} Slide`,
+      description: "",
+      config: {},
+    };
+
     try {
       const res = await fetch(
         `${API_URL}/api/presentations/${presentationId}/slides`,
@@ -245,7 +321,9 @@ export default function PresentationBuilder() {
           },
           body: JSON.stringify({
             type,
-            title: `New ${type.charAt(0).toUpperCase() + type.slice(1)} Slide`,
+            title: preset.title,
+            description: preset.description,
+            config: preset.config,
             order: slides.length,
           }),
         },

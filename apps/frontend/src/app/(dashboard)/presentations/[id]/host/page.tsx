@@ -134,6 +134,7 @@ export default function HostPresenterView() {
           );
 
           if (activeSession) {
+            // Fetch Q&A
             const qnaRes = await fetch(
               `${API_URL}/api/sessions/${activeSession._id}/qna`,
               {
@@ -143,21 +144,54 @@ export default function HostPresenterView() {
             if (qnaRes.ok) {
               setQnaQuestions(await qnaRes.json());
             }
+
+            // Fetch Slide Results if interactive
+            if (currentSlide) {
+              const resultsRes = await fetch(
+                `${API_URL}/api/sessions/${activeSession._id}/results/${currentSlide._id}`,
+                {
+                  headers: { Authorization: `Bearer ${token}` },
+                },
+              );
+              if (resultsRes.ok) {
+                const data = await resultsRes.json();
+                if (
+                  data &&
+                  (data.totalResponses > 0 || data.totalSubmissions > 0)
+                ) {
+                  setResults(data);
+                }
+              }
+
+              if (currentSlide.type === "quiz") {
+                const lbRes = await fetch(
+                  `${API_URL}/api/sessions/${activeSession._id}/leaderboard`,
+                  {
+                    headers: { Authorization: `Bearer ${token}` },
+                  },
+                );
+                if (lbRes.ok) {
+                  setLeaderboard(await lbRes.json());
+                }
+              }
+            }
           }
         }
       } catch (err) {
-        console.error("Failed to fetch QnA", err);
+        console.error("Failed to fetch session state", err);
       }
     };
 
     if (sessionStatus === "live") {
       fetchQnA();
     }
-  }, [presentation, presentationId, sessionStatus, joinCode]);
+  }, [presentation, presentationId, sessionStatus, joinCode, currentSlide]);
 
   // Socket setup
   useEffect(() => {
     if (!isConnected || !presentation) return;
+
+    emit("host-join", { joinCode, presentationId });
 
     const unsubs: (() => void)[] = [];
 
@@ -612,6 +646,7 @@ export default function HostPresenterView() {
                   joinCode={joinCode}
                   isHost={true}
                   showToolbar={false}
+                  leaderboard={leaderboard}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-zinc-500 font-medium">
