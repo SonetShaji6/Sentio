@@ -47,11 +47,22 @@ export function QuizInteraction({
 }: QuizInteractionProps) {
   const [selected, setSelected] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState(timer || 0);
-  const [startTime] = useState(Date.now());
+  const startTimeRef = useRef<number>(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Reset local state cleanly whenever slideId changes
   useEffect(() => {
-    if (!timer || timer <= 0 || hasSubmitted) return;
+    setSelected(null);
+    startTimeRef.current = Date.now();
+    if (timer && timer > 0) {
+      setTimeLeft(timer);
+    } else {
+      setTimeLeft(0);
+    }
+  }, [slideId, timer]);
+
+  useEffect(() => {
+    if (!timer || timer <= 0 || hasSubmitted || responseLocked) return;
 
     setTimeLeft(timer);
     timerRef.current = setInterval(() => {
@@ -67,10 +78,18 @@ export function QuizInteraction({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [timer, hasSubmitted, slideId]);
+  }, [timer, hasSubmitted, responseLocked, slideId]);
 
   const isTimedOut = Boolean(timer && timer > 0 && timeLeft <= 0);
   const isFinished = hasSubmitted || isTimedOut || responseLocked;
+
+  // Auto-submit if time expires and user had selected an answer
+  useEffect(() => {
+    if (isTimedOut && !hasSubmitted && !responseLocked && selected !== null) {
+      const responseTimeMs = Math.max(0, Date.now() - startTimeRef.current);
+      onSubmit([selected], responseTimeMs);
+    }
+  }, [isTimedOut, hasSubmitted, responseLocked, selected, onSubmit]);
 
   // Determine correct answer indices
   const correctIndices: number[] =
@@ -83,7 +102,7 @@ export function QuizInteraction({
 
   const handleSubmit = () => {
     if (selected === null || isFinished) return;
-    const responseTimeMs = Date.now() - startTime;
+    const responseTimeMs = Math.max(0, Date.now() - startTimeRef.current);
     if (timerRef.current) clearInterval(timerRef.current);
     onSubmit([selected], responseTimeMs);
   };

@@ -48,6 +48,7 @@ export default function HostPresenterView() {
   >("waiting");
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [audienceCount, setAudienceCount] = useState(0);
+  const [currentSession, setCurrentSession] = useState<any>(null);
 
   // Interaction State
   const [results, setResults] = useState<any>(null);
@@ -134,6 +135,7 @@ export default function HostPresenterView() {
           );
 
           if (activeSession) {
+            setCurrentSession(activeSession);
             // Fetch Q&A
             const qnaRes = await fetch(
               `${API_URL}/api/sessions/${activeSession._id}/qna`,
@@ -305,10 +307,28 @@ export default function HostPresenterView() {
     emit(SOCKET_EVENTS.HOST_START, { presentationId, joinCode });
   };
 
-  const handleEndSession = () => {
+  const handleEndSession = async () => {
     if (!presentation) return;
-    emit(SOCKET_EVENTS.HOST_END, { joinCode });
-    router.push(`/presentations/${presentationId}/edit`);
+    try {
+      emit(SOCKET_EVENTS.HOST_END, {
+        joinCode,
+        sessionId: currentSession?._id,
+        presentationId,
+      });
+
+      const token = getAccessToken();
+      if (currentSession?._id && token) {
+        await fetch(`${API_URL}/api/sessions/${currentSession._id}/end`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }).catch((e) => console.warn("End session REST call:", e));
+      }
+    } finally {
+      router.push(`/presentations/${presentationId}/edit`);
+    }
   };
 
   const changeSlide = useCallback(

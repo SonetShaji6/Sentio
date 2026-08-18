@@ -219,11 +219,15 @@ export async function submitQuizResponse(
     return { error: "You have already answered this question" };
   }
 
-  // Check timer — if timer is set and responseTime exceeds it, reject
+  // Check timer — gracefully clamp response time to prevent network lag rejections
   const timeLimit = slide.config?.timer;
-  if (timeLimit && responseTimeMs > timeLimit * 1000 + 3000) {
-    return { error: "Time expired for this question" };
-  }
+  const safeResponseTimeMs = Math.max(
+    0,
+    Math.min(
+      responseTimeMs || 0,
+      timeLimit && timeLimit > 0 ? timeLimit * 1000 : 30000,
+    ),
+  );
 
   // Validate answer
   const correctAnswers: number[] = slide.config?.correctAnswers || [];
@@ -237,7 +241,7 @@ export async function submitQuizResponse(
   if (isCorrect) {
     const basePoints = slide.config?.points || 1000;
     if (timeLimit && timeLimit > 0) {
-      const timeFraction = Math.min(responseTimeMs / (timeLimit * 1000), 1);
+      const timeFraction = Math.min(safeResponseTimeMs / (timeLimit * 1000), 1);
       scoreAwarded = Math.max(
         Math.round(basePoints - timeFraction * (basePoints * 0.5)),
         Math.round(basePoints * 0.1),
@@ -256,7 +260,7 @@ export async function submitQuizResponse(
     payload: { selectedOptions },
     isCorrect,
     score: scoreAwarded,
-    responseTimeMs,
+    responseTimeMs: safeResponseTimeMs,
   });
 
   // Update participant score in session

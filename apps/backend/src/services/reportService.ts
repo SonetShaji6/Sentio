@@ -454,7 +454,11 @@ export async function generateAndSaveSessionReport(sessionId: string) {
       ? await Presentation.findById(session.presentationId)
       : null;
 
-    const ownerId = presentation?.owner || session.hostSocketId;
+    let ownerId = presentation?.owner;
+    if (!ownerId) {
+      const anyUser = await User.findOne();
+      ownerId = anyUser?._id;
+    }
     if (!ownerId) return null;
 
     const reportTitle = `Session Report - ${presentation?.title || "Presentation"} (${session.joinCode})`;

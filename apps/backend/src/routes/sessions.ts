@@ -5,6 +5,7 @@ import Presentation from "../models/Presentation";
 import Slide from "../models/Slide";
 import QnAQuestion from "../models/QnAQuestion";
 import * as interactionService from "../services/interactionService";
+import * as reportService from "../services/reportService";
 
 const router = Router();
 
@@ -224,6 +225,40 @@ router.get(
     } catch (error) {
       console.error("Get Q&A error:", error);
       res.status(500).json({ message: "Failed to fetch questions" });
+    }
+  },
+);
+
+// ── End Session & Generate Report ──
+router.post(
+  "/:id/end",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const session = await Session.findById(req.params.id);
+      if (!session) {
+        res.status(404).json({ message: "Session not found" });
+        return;
+      }
+
+      session.status = "ended";
+      session.endedAt = new Date();
+      await session.save();
+
+      // Trigger automatic report generation
+      const reportResult = await reportService.generateAndSaveSessionReport(
+        session._id.toString(),
+      );
+
+      res.json({
+        message: "Session ended successfully",
+        session,
+        report: reportResult?.report,
+        fileResource: reportResult?.fileResource,
+      });
+    } catch (error) {
+      console.error("End session error:", error);
+      res.status(500).json({ message: "Failed to end session" });
     }
   },
 );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useSocket } from "@/hooks/useSocket";
 import { SOCKET_EVENTS } from "@sentio/shared/src/events/socket.events";
@@ -77,6 +77,7 @@ export default function AudienceView() {
   const { isConnected, emit, subscribe } = useSocket();
 
   // Track submitted slides to prevent re-submission on slide revisit
+  const submittedSlidesRef = useRef<Set<string>>(new Set());
   const [submittedSlides, setSubmittedSlides] = useState<Set<string>>(
     new Set(),
   );
@@ -120,8 +121,8 @@ export default function AudienceView() {
       subscribe(SOCKET_EVENTS.SLIDE_DATA, (data: SlideData) => {
         setCurrentSlide(data);
         setResponseLocked(data.responseLocked);
-        // Check if already submitted this slide
-        setHasSubmitted(submittedSlides.has(data.slideId));
+        // Check if already submitted this slide using latest ref
+        setHasSubmitted(submittedSlidesRef.current.has(data.slideId));
         // Reset results for new slide
         setPollResults(null);
         setQuizFeedback(null);
@@ -276,7 +277,8 @@ export default function AudienceView() {
       });
       if (type !== "wordcloud") {
         setHasSubmitted(true);
-        setSubmittedSlides((prev) => new Set(prev).add(currentSlide.slideId));
+        submittedSlidesRef.current.add(currentSlide.slideId);
+        setSubmittedSlides(new Set(submittedSlidesRef.current));
       }
     },
     [currentSlide, emit, joinCode],
@@ -433,6 +435,7 @@ export default function AudienceView() {
         {/* Interaction component */}
         {(type === "poll" || type === "imagepoll") && (
           <PollInteraction
+            key={currentSlide.slideId}
             slideId={currentSlide.slideId}
             options={config?.options || []}
             allowMultiple={config?.allowMultiple}
@@ -448,6 +451,7 @@ export default function AudienceView() {
 
         {type === "quiz" && (
           <QuizInteraction
+            key={currentSlide.slideId}
             slideId={currentSlide.slideId}
             options={config?.options || []}
             timer={config?.timer}
@@ -466,6 +470,7 @@ export default function AudienceView() {
 
         {type === "wordcloud" && (
           <WordCloudInteraction
+            key={currentSlide.slideId}
             slideId={currentSlide.slideId}
             hasSubmitted={false}
             responseLocked={responseLocked}
@@ -476,6 +481,7 @@ export default function AudienceView() {
 
         {type === "opentext" && (
           <OpenTextInteraction
+            key={currentSlide.slideId}
             slideId={currentSlide.slideId}
             charLimit={config?.charLimit || 500}
             hasSubmitted={hasSubmitted}
@@ -486,6 +492,7 @@ export default function AudienceView() {
 
         {type === "rating" && (
           <RatingInteraction
+            key={currentSlide.slideId}
             slideId={currentSlide.slideId}
             ratingRange={config?.ratingRange || { min: 1, max: 5 }}
             hasSubmitted={hasSubmitted}

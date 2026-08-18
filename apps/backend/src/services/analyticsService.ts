@@ -39,7 +39,7 @@ export async function getSessionOverview(sessionId: string): Promise<any> {
     sessionId,
   });
 
-  const totalParticipants = session.participants.length;
+  const totalParticipants = session.participants?.length || 0;
   const activeParticipants = respondents.length;
   const participationRate =
     totalParticipants > 0
@@ -86,7 +86,7 @@ export async function getParticipationMetrics(
     presentationId: session.presentationId,
   }).sort({ order: 1 });
 
-  const totalParticipants = session.participants.length;
+  const totalParticipants = session.participants?.length || 0;
   const metrics = [];
 
   for (const slide of slides) {
@@ -168,7 +168,7 @@ export async function getQuizMetrics(sessionId: string): Promise<any> {
       ? Math.round(totalTime / quizInteractions.length)
       : 0;
 
-  const totalParticipants = session.participants.length;
+  const totalParticipants = session.participants?.length || 0;
   const completionRate =
     totalParticipants > 0
       ? Math.round((participants.size / totalParticipants) * 100)
@@ -240,7 +240,7 @@ export async function calculateEngagementScore(
   sessionId: string,
 ): Promise<any> {
   const session = await Session.findById(sessionId);
-  if (!session || session.participants.length === 0) {
+  if (!session || !session.participants || session.participants.length === 0) {
     return {
       overall: 0,
       participationRate: 0,
