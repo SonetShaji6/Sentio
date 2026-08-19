@@ -23,4 +23,5 @@ jobs:
         node-version: '20.x'
         cache: 'npm'
     - run: npm ci
+    - run: npm run build --workspace=packages/shared
     - run: npm run build --workspace=apps/backend
