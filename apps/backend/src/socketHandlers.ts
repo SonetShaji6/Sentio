@@ -10,6 +10,45 @@ import * as interactionService from "./services/interactionService";
 import * as reactionService from "./services/reactionService";
 import * as reportService from "./services/reportService";
 
+type UserRoomJoinPayload = { userId?: string };
+type HostJoinPayload = { joinCode?: string };
+type HostStartPayload = {
+  experienceId?: any;
+  presentationId?: any;
+  joinCode?: string;
+};
+type HostSlideChangePayload = { joinCode: string; slideIndex: number };
+type HostStateTransitionPayload = {
+  joinCode: string;
+  conceptId?: string;
+  challengeId?: string;
+};
+type JoinCodePayload = { joinCode: string };
+type HostLockPayload = { joinCode: string; slideId?: string };
+type ResponseModeratedPayload = {
+  joinCode: string;
+  interactionId: string;
+  action: "hide" | "approve" | "highlight";
+};
+type JoinSessionPayload = { joinCode: string; displayName: string };
+type InteractionSubmitPayload = {
+  joinCode: string;
+  slideId: string;
+  type: string;
+  payload: any;
+};
+type ReactionSendPayload = {
+  joinCode: string;
+  slideId: string;
+  emoji: string;
+};
+type QnaSubmitPayload = { joinCode: string; questionText: string };
+type QnaModeratePayload = {
+  joinCode: string;
+  questionId: string;
+  action: string;
+};
+
 export function registerSocketHandlers(io: Server): void {
   io.on("connection", (socket: Socket) => {
     console.log("A user connected:", socket.id);
@@ -25,7 +64,7 @@ export function registerSocketHandlers(io: Server): void {
 }
 
 function registerUserRoomEvents(socket: Socket): void {
-  socket.on("user-room:join", ({ userId }) => {
+  socket.on("user-room:join", ({ userId }: UserRoomJoinPayload) => {
     if (userId) {
       socket.join(`user:${userId}`);
     }
@@ -35,7 +74,7 @@ function registerUserRoomEvents(socket: Socket): void {
 // ── Host Events ──
 
 function registerHostEvents(socket: Socket, io: Server): void {
-  socket.on("host-join", async ({ joinCode }) => {
+  socket.on("host-join", async ({ joinCode }: HostJoinPayload) => {
     try {
       const cleanCode = (joinCode || "").trim().toUpperCase();
       if (cleanCode) {
@@ -48,7 +87,7 @@ function registerHostEvents(socket: Socket, io: Server): void {
 
   socket.on(
     SOCKET_EVENTS.HOST_START,
-    async ({ experienceId, presentationId, joinCode }) => {
+    async ({ experienceId, presentationId, joinCode }: HostStartPayload) => {
       try {
         const cleanCode = (joinCode || "").toUpperCase();
         const orConditions: any[] = [];
@@ -137,7 +176,7 @@ function registerHostEvents(socket: Socket, io: Server): void {
 
   socket.on(
     SOCKET_EVENTS.HOST_SLIDE_CHANGE,
-    async ({ joinCode, slideIndex }) => {
+    async ({ joinCode, slideIndex }: HostSlideChangePayload) => {
       try {
         const cleanCode = (joinCode || "").toUpperCase();
         const session = await Session.findOne({
@@ -174,7 +213,11 @@ function registerHostEvents(socket: Socket, io: Server): void {
 
   socket.on(
     SOCKET_EVENTS.HOST_STATE_TRANSITION,
-    async ({ joinCode, conceptId, challengeId }) => {
+    async ({
+      joinCode,
+      conceptId,
+      challengeId,
+    }: HostStateTransitionPayload) => {
       try {
         const session = await Session.findOneAndUpdate(
           { joinCode },
@@ -201,17 +244,20 @@ function registerHostEvents(socket: Socket, io: Server): void {
     },
   );
 
-  socket.on(SOCKET_EVENTS.HOST_PAUSE, async ({ joinCode }) => {
+  socket.on(SOCKET_EVENTS.HOST_PAUSE, async ({ joinCode }: JoinCodePayload) => {
     await Session.updateOne({ joinCode }, { status: "paused" });
     io.to(joinCode).emit(SOCKET_EVENTS.SESSION_PAUSED);
   });
 
-  socket.on(SOCKET_EVENTS.HOST_RESUME, async ({ joinCode }) => {
-    await Session.updateOne({ joinCode }, { status: "live" });
-    io.to(joinCode).emit(SOCKET_EVENTS.SESSION_RESUMED);
-  });
+  socket.on(
+    SOCKET_EVENTS.HOST_RESUME,
+    async ({ joinCode }: JoinCodePayload) => {
+      await Session.updateOne({ joinCode }, { status: "live" });
+      io.to(joinCode).emit(SOCKET_EVENTS.SESSION_RESUMED);
+    },
+  );
 
-  socket.on(SOCKET_EVENTS.HOST_END, async ({ joinCode }) => {
+  socket.on(SOCKET_EVENTS.HOST_END, async ({ joinCode }: JoinCodePayload) => {
     const session = await Session.findOneAndUpdate(
       { joinCode },
       { status: "ended", endedAt: new Date() },
@@ -235,7 +281,7 @@ function registerHostEvents(socket: Socket, io: Server): void {
   // ── Response Lock/Unlock ──
   socket.on(
     SOCKET_EVENTS.HOST_LOCK_RESPONSES,
-    async ({ joinCode, slideId }) => {
+    async ({ joinCode, slideId }: HostLockPayload) => {
       try {
         let correctAnswers: number[] = [];
         if (slideId) {
@@ -262,7 +308,7 @@ function registerHostEvents(socket: Socket, io: Server): void {
 
   socket.on(
     SOCKET_EVENTS.HOST_UNLOCK_RESPONSES,
-    async ({ joinCode, slideId }) => {
+    async ({ joinCode, slideId }: HostLockPayload) => {
       try {
         if (slideId) {
           await Session.updateOne(
@@ -282,7 +328,7 @@ function registerHostEvents(socket: Socket, io: Server): void {
   // ── Open Text Moderation ──
   socket.on(
     SOCKET_EVENTS.RESPONSE_MODERATED,
-    async ({ joinCode, interactionId, action }) => {
+    async ({ joinCode, interactionId, action }: ResponseModeratedPayload) => {
       try {
         const result = await interactionService.moderateResponse(
           interactionId,
@@ -307,90 +353,96 @@ function registerHostEvents(socket: Socket, io: Server): void {
 // ── Audience Events ──
 
 function registerAudienceEvents(socket: Socket, io: Server): void {
-  socket.on(SOCKET_EVENTS.JOIN_SESSION, async ({ joinCode, displayName }) => {
-    try {
-      const cleanCode = (joinCode || "").trim().toUpperCase();
-      const session = await Session.findOne({
-        joinCode: cleanCode,
-        status: { $ne: "ended" },
-      });
-      if (!session) {
+  socket.on(
+    SOCKET_EVENTS.JOIN_SESSION,
+    async ({ joinCode, displayName }: JoinSessionPayload) => {
+      try {
+        const cleanCode = (joinCode || "").trim().toUpperCase();
+        const session = await Session.findOne({
+          joinCode: cleanCode,
+          status: { $ne: "ended" },
+        });
+        if (!session) {
+          socket.emit(
+            SOCKET_EVENTS.JOIN_ERROR,
+            "Session not found or has ended.",
+          );
+          return;
+        }
+
+        socket.join(cleanCode);
+
+        const existingParticipant = session.participants.find(
+          (p) => p.displayName === displayName,
+        );
+
+        if (existingParticipant) {
+          existingParticipant.socketId = socket.id;
+          existingParticipant.isOnline = true;
+        } else {
+          session.participants.push({
+            socketId: socket.id,
+            displayName,
+            joinedAt: new Date(),
+            isOnline: true,
+            score: 0,
+            responses: [],
+          });
+        }
+
+        await session.save();
+
+        // Send current session info to participant
+        socket.emit(SOCKET_EVENTS.JOIN_SUCCESS, { session });
+
+        // If presentation is live, immediately send current slide data to participant
+        if (session.presentationId && session.status === "live") {
+          const slides = await Slide.find({
+            presentationId: session.presentationId,
+          }).sort({ order: 1 });
+          const slideIndex = session.currentSlideIndex || 0;
+          if (slides[slideIndex]) {
+            await broadcastSlideData(
+              io,
+              cleanCode,
+              slides[slideIndex],
+              session,
+              socket,
+            );
+          }
+        } else if (session.currentChallengeId && session.status === "live") {
+          const currentChallenge = await Challenge.findById(
+            session.currentChallengeId,
+          );
+          if (currentChallenge) {
+            broadcastChallengeData(
+              io,
+              cleanCode,
+              currentChallenge,
+              session,
+              socket,
+            );
+          }
+        }
+
+        io.to(cleanCode).emit(SOCKET_EVENTS.AUDIENCE_UPDATED, {
+          count: session.participants.filter((p) => p.isOnline).length,
+        });
+
+        // Broadcast updated live leaderboard with all joined users
+        const leaderboard = await interactionService.getLeaderboard(
+          session._id.toString(),
+        );
+        io.to(cleanCode).emit(SOCKET_EVENTS.LEADERBOARD_UPDATE, leaderboard);
+      } catch (error) {
+        console.error("join-session error:", error);
         socket.emit(
           SOCKET_EVENTS.JOIN_ERROR,
-          "Session not found or has ended.",
+          "An error occurred while joining.",
         );
-        return;
       }
-
-      socket.join(cleanCode);
-
-      const existingParticipant = session.participants.find(
-        (p) => p.displayName === displayName,
-      );
-
-      if (existingParticipant) {
-        existingParticipant.socketId = socket.id;
-        existingParticipant.isOnline = true;
-      } else {
-        session.participants.push({
-          socketId: socket.id,
-          displayName,
-          joinedAt: new Date(),
-          isOnline: true,
-          score: 0,
-          responses: [],
-        });
-      }
-
-      await session.save();
-
-      // Send current session info to participant
-      socket.emit(SOCKET_EVENTS.JOIN_SUCCESS, { session });
-
-      // If presentation is live, immediately send current slide data to participant
-      if (session.presentationId && session.status === "live") {
-        const slides = await Slide.find({
-          presentationId: session.presentationId,
-        }).sort({ order: 1 });
-        const slideIndex = session.currentSlideIndex || 0;
-        if (slides[slideIndex]) {
-          await broadcastSlideData(
-            io,
-            cleanCode,
-            slides[slideIndex],
-            session,
-            socket,
-          );
-        }
-      } else if (session.currentChallengeId && session.status === "live") {
-        const currentChallenge = await Challenge.findById(
-          session.currentChallengeId,
-        );
-        if (currentChallenge) {
-          broadcastChallengeData(
-            io,
-            cleanCode,
-            currentChallenge,
-            session,
-            socket,
-          );
-        }
-      }
-
-      io.to(cleanCode).emit(SOCKET_EVENTS.AUDIENCE_UPDATED, {
-        count: session.participants.filter((p) => p.isOnline).length,
-      });
-
-      // Broadcast updated live leaderboard with all joined users
-      const leaderboard = await interactionService.getLeaderboard(
-        session._id.toString(),
-      );
-      io.to(cleanCode).emit(SOCKET_EVENTS.LEADERBOARD_UPDATE, leaderboard);
-    } catch (error) {
-      console.error("join-session error:", error);
-      socket.emit(SOCKET_EVENTS.JOIN_ERROR, "An error occurred while joining.");
-    }
-  });
+    },
+  );
 }
 
 // ── Interaction Events (Module 8) ──
@@ -398,7 +450,7 @@ function registerAudienceEvents(socket: Socket, io: Server): void {
 function registerInteractionEvents(socket: Socket, io: Server): void {
   socket.on(
     SOCKET_EVENTS.INTERACTION_SUBMIT,
-    async ({ joinCode, slideId, type, payload }) => {
+    async ({ joinCode, slideId, type, payload }: InteractionSubmitPayload) => {
       try {
         let result;
 
@@ -528,7 +580,7 @@ function registerInteractionEvents(socket: Socket, io: Server): void {
 function registerReactionEvents(socket: Socket, io: Server): void {
   socket.on(
     SOCKET_EVENTS.REACTION_SEND,
-    async ({ joinCode, slideId, emoji }) => {
+    async ({ joinCode, slideId, emoji }: ReactionSendPayload) => {
       try {
         const session = await Session.findOne({
           joinCode,
@@ -571,66 +623,69 @@ function registerReactionEvents(socket: Socket, io: Server): void {
 // ── Q&A Events ──
 
 function registerQnAEvents(socket: Socket, io: Server): void {
-  socket.on(SOCKET_EVENTS.QNA_SUBMIT, async ({ joinCode, questionText }) => {
-    try {
-      const session = await Session.findOne({
-        joinCode,
-        status: { $ne: "ended" },
-      });
-      if (!session) {
-        socket.emit(SOCKET_EVENTS.INTERACTION_ERROR, {
-          message: "Session not found",
+  socket.on(
+    SOCKET_EVENTS.QNA_SUBMIT,
+    async ({ joinCode, questionText }: QnaSubmitPayload) => {
+      try {
+        const session = await Session.findOne({
+          joinCode,
+          status: { $ne: "ended" },
         });
-        return;
-      }
+        if (!session) {
+          socket.emit(SOCKET_EVENTS.INTERACTION_ERROR, {
+            message: "Session not found",
+          });
+          return;
+        }
 
-      const participant = session.participants.find(
-        (p) => p.socketId === socket.id,
-      );
-      if (!participant) {
-        socket.emit(SOCKET_EVENTS.INTERACTION_ERROR, {
-          message: "Not a participant",
+        const participant = session.participants.find(
+          (p) => p.socketId === socket.id,
+        );
+        if (!participant) {
+          socket.emit(SOCKET_EVENTS.INTERACTION_ERROR, {
+            message: "Not a participant",
+          });
+          return;
+        }
+
+        const trimmed = questionText?.trim();
+        if (!trimmed || trimmed.length > 500) {
+          socket.emit(SOCKET_EVENTS.INTERACTION_ERROR, {
+            message: "Question must be between 1 and 500 characters",
+          });
+          return;
+        }
+
+        // Sanitize
+        const sanitized = trimmed.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+        const question = await QnAQuestion.create({
+          sessionId: session._id,
+          participantId: `${session._id}-${participant.displayName}`,
+          displayName: participant.displayName,
+          questionText: sanitized,
         });
-        return;
-      }
 
-      const trimmed = questionText?.trim();
-      if (!trimmed || trimmed.length > 500) {
-        socket.emit(SOCKET_EVENTS.INTERACTION_ERROR, {
-          message: "Question must be between 1 and 500 characters",
+        io.to(joinCode).emit(SOCKET_EVENTS.QNA_UPDATE, {
+          action: "new",
+          question: {
+            id: question._id.toString(),
+            displayName: question.displayName,
+            questionText: question.questionText,
+            status: question.status,
+            upvotes: question.upvotes,
+            createdAt: question.createdAt.toISOString(),
+          },
         });
-        return;
+      } catch (error) {
+        console.error("qna:submit error:", error);
       }
-
-      // Sanitize
-      const sanitized = trimmed.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-      const question = await QnAQuestion.create({
-        sessionId: session._id,
-        participantId: `${session._id}-${participant.displayName}`,
-        displayName: participant.displayName,
-        questionText: sanitized,
-      });
-
-      io.to(joinCode).emit(SOCKET_EVENTS.QNA_UPDATE, {
-        action: "new",
-        question: {
-          id: question._id.toString(),
-          displayName: question.displayName,
-          questionText: question.questionText,
-          status: question.status,
-          upvotes: question.upvotes,
-          createdAt: question.createdAt.toISOString(),
-        },
-      });
-    } catch (error) {
-      console.error("qna:submit error:", error);
-    }
-  });
+    },
+  );
 
   socket.on(
     SOCKET_EVENTS.QNA_MODERATE,
-    async ({ joinCode, questionId, action }) => {
+    async ({ joinCode, questionId, action }: QnaModeratePayload) => {
       try {
         // Verify this socket is the host
         const session = await Session.findOne({ joinCode });
