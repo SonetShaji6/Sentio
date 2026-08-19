@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { X, Check, Palette, Sparkles, Type, RefreshCw } from "lucide-react";
-import { useAutoSave } from "@/hooks/useAutoSave";
 import {
   PresentationTheme,
   PRESET_THEMES,
@@ -28,18 +27,11 @@ export function ThemeSettings({
   const currentTheme = resolveTheme(initialTheme);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
-  const { data, updateData, saveState } = useAutoSave(
-    `/api/presentations/${presentationId}`,
-    { theme: currentTheme },
-    800,
-  );
-
   if (!isOpen) return null;
 
-  const activeTheme = resolveTheme(data.theme || currentTheme);
+  const activeTheme = currentTheme;
 
   const handleApplyTheme = (theme: PresentationTheme) => {
-    updateData({ theme });
     onThemeUpdate(theme);
   };
 
@@ -95,10 +87,6 @@ export function ThemeSettings({
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-xs text-zinc-400 font-mono">
-              {saveState === "saving" && "Saving..."}
-              {saveState === "saved" && "Saved"}
-            </span>
             <button
               onClick={onClose}
               className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"

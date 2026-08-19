@@ -70,11 +70,12 @@ export default function PresentationBuilder() {
   const {
     data: presentation,
     updateData: updatePresentation,
+    saveImmediately: savePresentationImmediately,
     saveState,
   } = useAutoSave<PresentationData>(
     `${API_URL}/api/presentations/${presentationId}`,
     initialData,
-    1000,
+    800,
   );
 
   useEffect(() => {
@@ -711,7 +712,9 @@ export default function PresentationBuilder() {
         onClose={() => setIsThemeModalOpen(false)}
         presentationId={presentationId}
         initialTheme={presentation.theme}
-        onThemeUpdate={(newTheme) => updatePresentation({ theme: newTheme })}
+        onThemeUpdate={(newTheme) =>
+          savePresentationImmediately({ theme: newTheme })
+        }
       />
 
       <KeyboardShortcutsModal

@@ -18,6 +18,7 @@ import {
   Sliders,
 } from "lucide-react";
 import { AISlideGeneratorModal } from "./AISlideGeneratorModal";
+import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
 
 interface AIAssistantProps {
   presentationId: string;
@@ -253,13 +254,17 @@ export default function AIAssistant({
                   </div>
                 )}
                 <div
-                  className={`max-w-[85%] rounded-2xl p-3 text-xs leading-relaxed ${
+                  className={`max-w-[88%] rounded-2xl p-3 text-xs leading-relaxed ${
                     msg.role === "user"
-                      ? "bg-purple-600 text-white font-medium"
-                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700"
+                      ? "bg-purple-600 text-white font-medium shadow-xs"
+                      : "bg-zinc-100 dark:bg-zinc-800/90 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700/80 shadow-xs"
                   }`}
                 >
-                  {msg.text}
+                  {msg.role === "ai" ? (
+                    <MarkdownRenderer content={msg.text} />
+                  ) : (
+                    msg.text
+                  )}
                 </div>
               </div>
             ))}
