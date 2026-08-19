@@ -12,6 +12,7 @@ import {
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { UnverifiedEmailGate } from "@/components/UnverifiedEmailGate";
 
 export default function DashboardLayout({
   children,
@@ -46,6 +47,16 @@ export default function DashboardLayout({
       <div className="dashboard-loading flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-950">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
       </div>
+    );
+  }
+
+  // If user is logged in but hasn't verified their email, gate the dashboard
+  if (user && !user.isEmailVerified) {
+    return (
+      <UnverifiedEmailGate
+        user={user}
+        onVerified={(verifiedUser) => setUser(verifiedUser)}
+      />
     );
   }
 

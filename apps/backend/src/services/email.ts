@@ -49,7 +49,7 @@ export async function sendPasswordResetEmail(email: string, token: string) {
 }
 
 export async function sendVerificationEmail(email: string, token: string) {
-  const verifyUrl = `${process.env.CLIENT_URL || "http://localhost:3000"}/verify-email?token=${token}`;
+  const verifyUrl = `${process.env.CLIENT_URL || "http://localhost:3000"}/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
 
   if (isDev && !process.env.RESEND_API_KEY) {
     console.log(`[DEV EMAIL] Email verification for ${email}: ${verifyUrl}`);

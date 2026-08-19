@@ -127,6 +127,7 @@ router.post(
           email: user.email,
           avatar: user.avatar,
           role: user.role,
+          isEmailVerified: user.isEmailVerified,
           createdAt: user.createdAt.toISOString(),
         },
         accessToken: tokens.accessToken,
@@ -171,6 +172,7 @@ router.post(
           email: user.email,
           avatar: user.avatar,
           role: user.role,
+          isEmailVerified: user.isEmailVerified,
           createdAt: user.createdAt.toISOString(),
         },
         accessToken: tokens.accessToken,
@@ -197,6 +199,8 @@ router.get("/me", requireAuth, async (req: any, res: any) => {
         email: user.email,
         avatar: user.avatar,
         role: user.role,
+        isEmailVerified: user.isEmailVerified,
+        preferences: user.preferences,
         createdAt: user.createdAt.toISOString(),
       },
     });
@@ -274,6 +278,8 @@ router.patch(
           email: user.email,
           avatar: user.avatar,
           role: user.role,
+          isEmailVerified: user.isEmailVerified,
+          preferences: user.preferences,
           createdAt: user.createdAt.toISOString(),
         },
       });
@@ -318,6 +324,8 @@ router.post(
           email: user.email,
           avatar: user.avatar,
           role: user.role,
+          isEmailVerified: user.isEmailVerified,
+          preferences: user.preferences,
           createdAt: user.createdAt.toISOString(),
         },
       });
@@ -378,12 +386,10 @@ router.post(
 
       // Always return success to prevent email enumeration
       if (!user) {
-        return res
-          .status(200)
-          .json({
-            message:
-              "If that email is in our database, we will send a password reset link to it.",
-          });
+        return res.status(200).json({
+          message:
+            "If that email is in our database, we will send a password reset link to it.",
+        });
       }
 
       const resetToken = generateCryptoToken();
@@ -395,12 +401,10 @@ router.post(
 
       await sendPasswordResetEmail(user.email, resetToken);
 
-      return res
-        .status(200)
-        .json({
-          message:
-            "If that email is in our database, we will send a password reset link to it.",
-        });
+      return res.status(200).json({
+        message:
+          "If that email is in our database, we will send a password reset link to it.",
+      });
     } catch (err) {
       console.error("Forgot password error:", err);
       return res.status(500).json({ message: "Internal server error" });
@@ -501,6 +505,70 @@ router.post(
       return res.status(200).json({ message: "Email verified successfully." });
     } catch (err) {
       console.error("Verify email error:", err);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  },
+);
+
+// ── POST /api/auth/resend-verification ──
+router.post(
+  "/resend-verification",
+  authRateLimiter,
+  async (req: any, res: any) => {
+    try {
+      let email = req.body?.email;
+
+      // If user is authenticated via Bearer token, extract from token
+      const authHeader = req.headers.authorization;
+      if (!email && authHeader?.startsWith("Bearer ")) {
+        try {
+          const token = authHeader.slice(7);
+          const payload = jwt.verify(token, JWT_SECRET) as any;
+          const u = await User.findById(payload.sub);
+          if (u) email = u.email;
+        } catch {
+          // Token invalid or expired, continue
+        }
+      }
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const user = await User.findOne({ email: email.toLowerCase() });
+      if (!user) {
+        return res.status(200).json({
+          message:
+            "If an account with that email exists, a verification link has been sent.",
+        });
+      }
+
+      if (user.isEmailVerified) {
+        return res.status(200).json({
+          message: "Email is already verified.",
+          isEmailVerified: true,
+        });
+      }
+
+      const emailVerificationToken = generateCryptoToken();
+      const emailVerificationHash = await bcrypt.hash(
+        emailVerificationToken,
+        12,
+      );
+
+      user.emailVerificationToken = emailVerificationHash;
+      user.emailVerificationExpires = new Date(
+        Date.now() + 24 * 60 * 60 * 1000,
+      ); // 24 hours
+      await user.save();
+
+      await sendVerificationEmail(user.email, emailVerificationToken);
+
+      return res.status(200).json({
+        message: "Verification email sent successfully.",
+      });
+    } catch (err) {
+      console.error("Resend verification error:", err);
       return res.status(500).json({ message: "Internal server error" });
     }
   },

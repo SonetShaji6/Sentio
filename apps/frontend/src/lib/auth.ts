@@ -117,6 +117,7 @@ export interface AuthUser {
   email: string;
   avatar?: string;
   role: string;
+  isEmailVerified?: boolean;
   createdAt: string;
   preferences?: {
     theme: "light" | "dark" | "system";
@@ -136,6 +137,44 @@ export async function fetchCurrentUser(): Promise<AuthUser | null> {
     return data.user;
   } catch {
     return null;
+  }
+}
+
+// ── Resend Verification Email ──
+export async function resendVerificationEmail(
+  email?: string,
+): Promise<{ success: boolean; message: string; isEmailVerified?: boolean }> {
+  try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    const token = getAccessToken();
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_URL}/api/auth/resend-verification`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ email }),
+      credentials: "include",
+    });
+
+    const data = await res.json();
+    return {
+      success: res.ok,
+      message:
+        data.message ||
+        (res.ok
+          ? "Verification email sent successfully."
+          : "Failed to send verification email."),
+      isEmailVerified: data.isEmailVerified,
+    };
+  } catch {
+    return {
+      success: false,
+      message: "Network error. Please check your connection and try again.",
+    };
   }
 }
 

@@ -71,3 +71,37 @@ export async function requireAdmin(
     next();
   });
 }
+
+/**
+ * Requires an authenticated user with verified email (admins bypass).
+ */
+export async function requireVerifiedEmail(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  requireAuth(req, res, async () => {
+    const userRole = (req as any).user?.role;
+    if (userRole === "admin") {
+      return next();
+    }
+
+    try {
+      const User = (await import("../models/User")).default;
+      const user = await User.findById((req as any).user.id).select(
+        "isEmailVerified",
+      );
+      if (user && !user.isEmailVerified) {
+        res.status(403).json({
+          message: "Please verify your email address to access this feature.",
+          isEmailVerified: false,
+        });
+        return;
+      }
+    } catch {
+      // Continue if DB check fails
+    }
+
+    next();
+  });
+}
