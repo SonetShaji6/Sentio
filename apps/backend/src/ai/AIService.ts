@@ -2,11 +2,13 @@ import crypto from "crypto";
 // @ts-ignore
 import LRU from "lru-cache";
 import { IAIProvider } from "./providers/AIProvider";
+import { GeminiProvider } from "./providers/GeminiProvider";
 import { GroqProvider } from "./providers/GroqProvider";
 import { PromptManager } from "./PromptManager";
 
 class AIService {
-  private provider: IAIProvider;
+  private primaryProvider: IAIProvider;
+  private backupProvider: IAIProvider;
 
   // Cache to prevent duplicate AI generations (100 items, 1-hour TTL)
   private cache = new LRU<string, any>({
@@ -15,7 +17,42 @@ class AIService {
   });
 
   constructor() {
-    this.provider = new GroqProvider();
+    this.primaryProvider = new GeminiProvider();
+    this.backupProvider = new GroqProvider();
+  }
+
+  private async executeStructured<T>(
+    prompt: string,
+    schemaDescription: string,
+    systemPrompt?: string,
+  ) {
+    try {
+      return await this.primaryProvider.generateStructured<T>(
+        prompt,
+        schemaDescription,
+        systemPrompt,
+      );
+    } catch (primaryError: any) {
+      console.warn(
+        `[AIService] Primary AI provider (Gemini) failed: ${primaryError?.message || primaryError}. Falling back to backup provider (Groq)...`,
+      );
+      return await this.backupProvider.generateStructured<T>(
+        prompt,
+        schemaDescription,
+        systemPrompt,
+      );
+    }
+  }
+
+  private async executeText(prompt: string, systemPrompt?: string) {
+    try {
+      return await this.primaryProvider.generateText(prompt, systemPrompt);
+    } catch (primaryError: any) {
+      console.warn(
+        `[AIService] Primary AI provider (Gemini) failed: ${primaryError?.message || primaryError}. Falling back to backup provider (Groq)...`,
+      );
+      return await this.backupProvider.generateText(prompt, systemPrompt);
+    }
   }
 
   private getCacheKey(method: string, prompt: string): string {
@@ -47,7 +84,7 @@ class AIService {
       return this.cache.get(cacheKey);
     }
 
-    const response = await this.provider.generateStructured<any[]>(
+    const response = await this.executeStructured<any[]>(
       prompt,
       PromptManager.QUIZ_SCHEMA,
       "You are an expert curriculum designer. Generate accurate, engaging quiz questions.",
@@ -69,7 +106,7 @@ class AIService {
       return this.cache.get(cacheKey);
     }
 
-    const response = await this.provider.generateStructured<any[]>(
+    const response = await this.executeStructured<any[]>(
       prompt,
       PromptManager.POLL_SCHEMA,
       "You are an expert audience engagement specialist. Generate thought-provoking poll questions.",
@@ -103,7 +140,7 @@ class AIService {
       return this.cache.get(cacheKey);
     }
 
-    const response = await this.provider.generateStructured<any[]>(
+    const response = await this.executeStructured<any[]>(
       prompt,
       PromptManager.FULL_DECK_SCHEMA,
       "You are a world-class presentation strategist and keynote designer.",
@@ -129,7 +166,7 @@ class AIService {
       return this.cache.get(cacheKey);
     }
 
-    const response = await this.provider.generateStructured<any[]>(
+    const response = await this.executeStructured<any[]>(
       prompt,
       PromptManager.ICEBREAKER_SCHEMA,
       "You are an expert facilitator creating engaging audience icebreakers.",
@@ -150,7 +187,7 @@ class AIService {
       return this.cache.get(cacheKey);
     }
 
-    const response = await this.provider.generateText(prompt);
+    const response = await this.executeText(prompt);
     this.cache.set(cacheKey, response.content);
     return response.content;
   }
@@ -169,7 +206,7 @@ class AIService {
       timeline,
     );
 
-    const response = await this.provider.generateStructured<any>(
+    const response = await this.executeStructured<any>(
       prompt,
       PromptManager.RECOMMENDATION_SCHEMA,
       "You are an expert AI presentation coach.",
@@ -183,7 +220,7 @@ class AIService {
    */
   async chat(message: string, context: string) {
     const systemPrompt = PromptManager.getChatSystemPrompt(context);
-    const response = await this.provider.generateText(message, systemPrompt);
+    const response = await this.executeText(message, systemPrompt);
     return response.content;
   }
 }
