@@ -24,6 +24,7 @@ interface AddSlideModalProps {
   onClose: () => void;
   onAddSlide: (type: SlideType) => void;
   onOpenAIGenerator?: () => void;
+  targetIndex?: number | null;
 }
 
 const slideTypes: {
@@ -99,6 +100,7 @@ export function AddSlideModal({
   onClose,
   onAddSlide,
   onOpenAIGenerator,
+  targetIndex,
 }: AddSlideModalProps) {
   if (!isOpen) return null;
 
@@ -106,20 +108,29 @@ export function AddSlideModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
+        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
+        <div className="p-6 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-              Add New Slide
-            </h2>
-            <p className="text-xs text-zinc-500">
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-lg font-bold text-zinc-950 dark:text-white">
+                {targetIndex !== undefined && targetIndex !== null
+                  ? `Insert Slide at Position #${targetIndex + 1}`
+                  : "Add New Slide"}
+              </h2>
+              {targetIndex !== undefined && targetIndex !== null && (
+                <span className="px-2.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700 text-[10px] font-bold rounded-full">
+                  Position {targetIndex + 1}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-zinc-500 mt-0.5">
               Select a blank template or generate tailored content with AI
             </p>
           </div>
@@ -139,27 +150,27 @@ export function AddSlideModal({
                 onClose();
                 onOpenAIGenerator();
               }}
-              className="p-5 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 text-white cursor-pointer shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.01] flex items-center justify-between group"
+              className="p-5 rounded-2xl bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 cursor-pointer shadow-md hover:shadow-xl transition-all duration-200 hover-lift active-press flex items-center justify-between group"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0">
-                  <Sparkles className="w-6 h-6 animate-pulse" />
+                <div className="w-12 h-12 rounded-xl bg-white/10 dark:bg-zinc-900/10 backdrop-blur-md flex items-center justify-center text-current shrink-0">
+                  <Sparkles className="w-6 h-6 animate-pulse text-amber-400" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold flex items-center gap-2">
                     <span>Generate Slides with Sentio AI</span>
-                    <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-sm">
+                    <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-white/15 dark:bg-zinc-900/15 backdrop-blur-sm">
                       Smart Creator
                     </span>
                   </h3>
-                  <p className="text-xs text-purple-100 mt-0.5">
+                  <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-0.5">
                     Generate multi-slide quizzes, polls, icebreakers, or entire
                     presentations on any topic.
                   </p>
                 </div>
               </div>
 
-              <div className="hidden sm:flex items-center gap-1.5 text-xs font-bold bg-white text-purple-950 px-3.5 py-2 rounded-xl shadow-xs group-hover:bg-purple-50 transition-colors shrink-0">
+              <div className="hidden sm:flex items-center gap-1.5 text-xs font-bold bg-white dark:bg-zinc-950 text-zinc-950 dark:text-white px-4 py-2 rounded-xl shadow-xs group-hover:bg-zinc-100 dark:group-hover:bg-zinc-900 transition-colors shrink-0">
                 <span>Launch AI</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </div>
@@ -179,12 +190,12 @@ export function AddSlideModal({
                     <button
                       key={slide.type}
                       onClick={() => onAddSlide(slide.type)}
-                      className="flex flex-col items-center justify-center p-4 bg-zinc-50 dark:bg-zinc-800/50 hover:bg-blue-50/80 dark:hover:bg-blue-950/30 border-2 border-zinc-200/80 dark:border-zinc-800 hover:border-blue-500 rounded-2xl transition-all group cursor-pointer text-center"
+                      className="flex flex-col items-center justify-center p-4 bg-zinc-50 dark:bg-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 rounded-2xl transition-all duration-150 group cursor-pointer text-center hover-lift active-press"
                     >
-                      <div className="p-3 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-500 group-hover:text-blue-600 group-hover:border-blue-300 dark:group-hover:border-blue-700 mb-2.5 transition-colors shadow-2xs">
+                      <div className="p-3 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 group-hover:text-zinc-950 dark:group-hover:text-white mb-2.5 transition-colors shadow-2xs">
                         {slide.icon}
                       </div>
-                      <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 group-hover:text-blue-700 dark:group-hover:text-blue-400">
+                      <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 group-hover:text-zinc-950 dark:group-hover:text-white">
                         {slide.label}
                       </span>
                     </button>

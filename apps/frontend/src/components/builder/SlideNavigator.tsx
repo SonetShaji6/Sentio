@@ -64,6 +64,8 @@ interface SortableSlideProps {
   onSelect: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  onInsertAbove?: () => void;
+  onInsertBelow?: () => void;
   index: number;
 }
 
@@ -74,6 +76,8 @@ function SortableSlideItem({
   onSelect,
   onDelete,
   onDuplicate,
+  onInsertAbove,
+  onInsertBelow,
   index,
 }: SortableSlideProps) {
   const { attributes, listeners, setNodeRef, transform, transition } =
@@ -93,10 +97,10 @@ function SortableSlideItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group relative flex items-center p-2 mb-2.5 rounded-xl border-2 cursor-pointer transition-all ${
+      className={`group relative flex items-center p-2 rounded-xl border cursor-pointer transition-all duration-200 hover-lift ${
         isActive
-          ? "border-blue-600 bg-blue-50/80 dark:bg-blue-950/40 shadow-sm"
-          : "border-zinc-200 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700 bg-white dark:bg-zinc-900/60"
+          ? "border-zinc-950 dark:border-white bg-zinc-100/90 dark:bg-zinc-800/90 shadow-sm"
+          : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 bg-white dark:bg-zinc-900/60"
       }`}
       onClick={onSelect}
     >
@@ -163,14 +167,41 @@ function SortableSlideItem({
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 top-full mt-1 w-32 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-30 py-1 overflow-hidden">
+          <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-30 py-1 overflow-hidden animate-scale-in">
+            {onInsertAbove && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                  onInsertAbove();
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2 font-medium"
+              >
+                <Plus className="w-3.5 h-3.5 text-zinc-900 dark:text-white" />{" "}
+                Insert Above
+              </button>
+            )}
+            {onInsertBelow && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                  onInsertBelow();
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2 font-medium"
+              >
+                <Plus className="w-3.5 h-3.5 text-zinc-900 dark:text-white" />{" "}
+                Insert Below
+              </button>
+            )}
+            <div className="my-1 border-t border-zinc-100 dark:border-zinc-800" />
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setMenuOpen(false);
                 onDuplicate();
               }}
-              className="w-full text-left px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2"
+              className="w-full text-left px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2 font-medium"
             >
               <Copy className="w-3.5 h-3.5" /> Duplicate
             </button>
@@ -208,12 +239,38 @@ function SortableSlideItem({
   );
 }
 
+function InsertSlideDivider({
+  onInsert,
+  label = "Insert slide here",
+}: {
+  onInsert: () => void;
+  label?: string;
+}) {
+  return (
+    <div className="group/divider relative h-3 flex items-center justify-center my-0.5 z-10">
+      <div className="absolute inset-x-2 h-0.5 bg-transparent group-hover/divider:bg-zinc-400/80 dark:group-hover/divider:bg-zinc-500/80 transition-all rounded-full" />
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onInsert();
+        }}
+        className="opacity-0 group-hover/divider:opacity-100 transition-all duration-150 scale-75 group-hover/divider:scale-100 px-2 py-0.5 bg-zinc-950 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-md z-20 active-press cursor-pointer"
+        title={label}
+      >
+        <Plus className="w-2.5 h-2.5" />
+        <span>Add Slide</span>
+      </button>
+    </div>
+  );
+}
+
 interface SlideNavigatorProps {
   slides: ISlide[];
   theme?: PresentationTheme | any;
   activeSlideId: string | null;
   onSelectSlide: (id: string) => void;
   onAddSlide: () => void;
+  onAddSlideAt?: (targetIndex: number) => void;
   onDeleteSlide: (id: string) => void;
   onDuplicateSlide: (id: string) => void;
   onReorderSlides: (slideIds: string[]) => void;
@@ -226,13 +283,18 @@ export function SlideNavigator({
   activeSlideId,
   onSelectSlide,
   onAddSlide,
+  onAddSlideAt,
   onDeleteSlide,
   onDuplicateSlide,
   onReorderSlides,
   className = "",
 }: SlideNavigatorProps) {
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 250, tolerance: 5 },
     }),
@@ -243,12 +305,19 @@ export function SlideNavigator({
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-
     if (over && active.id !== over.id) {
       const oldIndex = slides.findIndex((s) => s._id === active.id);
       const newIndex = slides.findIndex((s) => s._id === over.id);
       const newSlides = arrayMove(slides, oldIndex, newIndex);
       onReorderSlides(newSlides.map((s) => s._id));
+    }
+  };
+
+  const handleInsertAt = (targetIndex: number) => {
+    if (onAddSlideAt) {
+      onAddSlideAt(targetIndex);
+    } else {
+      onAddSlide();
     }
   };
 
@@ -259,7 +328,7 @@ export function SlideNavigator({
       {/* Header */}
       <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+          <div className="p-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
             <Layers className="w-4 h-4" />
           </div>
           <h2 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
@@ -268,10 +337,10 @@ export function SlideNavigator({
         </div>
         <button
           onClick={onAddSlide}
-          className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-xs flex items-center gap-1 text-xs font-bold"
-          title="Add Slide"
+          className="px-2.5 py-1.5 bg-zinc-950 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl transition-all shadow-xs flex items-center gap-1 text-xs font-bold active-press cursor-pointer"
+          title="Add Slide to End"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Add</span>
         </button>
       </div>
@@ -288,16 +357,33 @@ export function SlideNavigator({
             strategy={verticalListSortingStrategy}
           >
             {slides.map((slide, index) => (
-              <SortableSlideItem
-                key={slide._id}
-                slide={slide}
-                theme={theme}
-                index={index}
-                isActive={activeSlideId === slide._id}
-                onSelect={() => onSelectSlide(slide._id)}
-                onDelete={() => onDeleteSlide(slide._id)}
-                onDuplicate={() => onDuplicateSlide(slide._id)}
-              />
+              <React.Fragment key={slide._id}>
+                {/* Insert divider before first slide or between slides */}
+                {index === 0 && (
+                  <InsertSlideDivider
+                    onInsert={() => handleInsertAt(0)}
+                    label="Insert slide at start"
+                  />
+                )}
+
+                <SortableSlideItem
+                  slide={slide}
+                  theme={theme}
+                  index={index}
+                  isActive={activeSlideId === slide._id}
+                  onSelect={() => onSelectSlide(slide._id)}
+                  onDelete={() => onDeleteSlide(slide._id)}
+                  onDuplicate={() => onDuplicateSlide(slide._id)}
+                  onInsertAbove={() => handleInsertAt(index)}
+                  onInsertBelow={() => handleInsertAt(index + 1)}
+                />
+
+                {/* Insert divider after each slide */}
+                <InsertSlideDivider
+                  onInsert={() => handleInsertAt(index + 1)}
+                  label={`Insert slide after #${index + 1}`}
+                />
+              </React.Fragment>
             ))}
           </SortableContext>
         </DndContext>
@@ -307,7 +393,7 @@ export function SlideNavigator({
             <p className="text-xs">No slides yet.</p>
             <button
               onClick={onAddSlide}
-              className="text-blue-600 text-xs font-bold mt-2 hover:underline inline-flex items-center gap-1"
+              className="text-zinc-900 dark:text-white text-xs font-bold mt-2 hover:underline inline-flex items-center gap-1"
             >
               <Plus className="w-3.5 h-3.5" /> Add First Slide
             </button>
