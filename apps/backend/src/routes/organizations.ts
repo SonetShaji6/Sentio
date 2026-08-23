@@ -117,11 +117,9 @@ router.post(
       });
 
       if (!member) {
-        res
-          .status(403)
-          .json({
-            message: "Only organization owners/admins can invite members.",
-          });
+        res.status(403).json({
+          message: "Only organization owners/admins can invite members.",
+        });
         return;
       }
 
@@ -197,6 +195,210 @@ router.post(
     } catch (error) {
       console.error("Accept invitation error:", error);
       res.status(500).json({ message: "Failed to accept invitation" });
+    }
+  },
+);
+
+// ── Get Organization Presentations ──
+router.get(
+  "/:id/presentations",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const member = await OrganizationMember.findOne({
+        organization: req.params.id,
+        user: req.user.id,
+      });
+
+      if (!member) {
+        res.status(403).json({ message: "Access denied to organization" });
+        return;
+      }
+
+      const Presentation = (await import("../models/Presentation")).default;
+      const Slide = (await import("../models/Slide")).default;
+
+      const presentations = await Presentation.find({
+        organization: req.params.id,
+        isDeleted: false,
+      })
+        .populate("owner", "name email avatar")
+        .sort({ updatedAt: -1 });
+
+      // Attach slide count to each presentation
+      const presWithSlideCounts = await Promise.all(
+        presentations.map(async (p: any) => {
+          const slideCount = await Slide.countDocuments({
+            presentationId: p._id,
+          });
+          const pObj = p.toObject();
+          return {
+            ...pObj,
+            slideCount,
+          };
+        }),
+      );
+
+      res.json(presWithSlideCounts);
+    } catch (error) {
+      console.error("Get organization presentations error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to retrieve organization presentations" });
+    }
+  },
+);
+
+// ── Get User Presentations Available to Add to Organization ──
+router.get(
+  "/:id/available-presentations",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const member = await OrganizationMember.findOne({
+        organization: req.params.id,
+        user: req.user.id,
+      });
+
+      if (!member) {
+        res.status(403).json({ message: "Access denied to organization" });
+        return;
+      }
+
+      const Presentation = (await import("../models/Presentation")).default;
+
+      // Find user's presentations that are NOT in this organization
+      const available = await Presentation.find({
+        owner: req.user.id,
+        organization: { $ne: req.params.id },
+        isDeleted: false,
+      }).sort({ updatedAt: -1 });
+
+      res.json(available);
+    } catch (error) {
+      console.error("Get available presentations error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to retrieve available presentations" });
+    }
+  },
+);
+
+// ── Add Presentation to Organization ──
+router.post(
+  "/:id/presentations",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const { presentationId } = req.body;
+      if (!presentationId) {
+        res.status(400).json({ message: "presentationId is required" });
+        return;
+      }
+
+      const member = await OrganizationMember.findOne({
+        organization: req.params.id,
+        user: req.user.id,
+      });
+
+      if (!member) {
+        res.status(403).json({ message: "Access denied to organization" });
+        return;
+      }
+
+      const Presentation = (await import("../models/Presentation")).default;
+
+      const presentation = await Presentation.findOne({
+        _id: presentationId,
+        isDeleted: false,
+      });
+
+      if (!presentation) {
+        res.status(404).json({ message: "Presentation not found" });
+        return;
+      }
+
+      // Check ownership or admin privilege
+      const isOwner = presentation.owner.toString() === req.user.id;
+      const isOrgAdmin = ["owner", "admin"].includes(member.role);
+
+      if (!isOwner && !isOrgAdmin) {
+        res
+          .status(403)
+          .json({ message: "You can only share your own presentations." });
+        return;
+      }
+
+      presentation.organization = req.params.id as any;
+      await presentation.save();
+
+      res.json({
+        message: "Presentation added to organization successfully",
+        presentation,
+      });
+    } catch (error: any) {
+      console.error("Add presentation to org error:", error);
+      res
+        .status(500)
+        .json({
+          message:
+            error.message || "Failed to add presentation to organization",
+        });
+    }
+  },
+);
+
+// ── Remove Presentation from Organization ──
+router.delete(
+  "/:id/presentations/:presentationId",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const member = await OrganizationMember.findOne({
+        organization: req.params.id,
+        user: req.user.id,
+      });
+
+      if (!member) {
+        res.status(403).json({ message: "Access denied to organization" });
+        return;
+      }
+
+      const Presentation = (await import("../models/Presentation")).default;
+
+      const presentation = await Presentation.findOne({
+        _id: req.params.presentationId,
+        organization: req.params.id,
+      });
+
+      if (!presentation) {
+        res
+          .status(404)
+          .json({ message: "Presentation not found in organization" });
+        return;
+      }
+
+      const isOwner = presentation.owner.toString() === req.user.id;
+      const isOrgAdmin = ["owner", "admin"].includes(member.role);
+
+      if (!isOwner && !isOrgAdmin) {
+        res
+          .status(403)
+          .json({
+            message: "Only the presentation owner or org admin can remove it.",
+          });
+        return;
+      }
+
+      presentation.organization = undefined;
+      await presentation.save();
+
+      res.json({ message: "Presentation removed from organization" });
+    } catch (error) {
+      console.error("Remove presentation from org error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to remove presentation from organization" });
     }
   },
 );

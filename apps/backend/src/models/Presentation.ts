@@ -16,6 +16,7 @@ export interface IPresentationVersion {
 
 export interface IPresentation extends Document {
   owner: mongoose.Types.ObjectId;
+  organization?: mongoose.Types.ObjectId;
   title: string;
   description: string;
   category: string;
@@ -50,6 +51,7 @@ const PresentationVersionSchema = new Schema<IPresentationVersion>(
 const PresentationSchema = new Schema<IPresentation>(
   {
     owner: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    organization: { type: Schema.Types.ObjectId, ref: "Organization" },
     title: { type: String, required: true, trim: true },
     description: { type: String, default: "", trim: true },
     category: { type: String, default: "General" },
@@ -87,6 +89,7 @@ const PresentationSchema = new Schema<IPresentation>(
 
 // Indexes for common queries
 PresentationSchema.index({ owner: 1, isDeleted: 1, updatedAt: -1 });
+PresentationSchema.index({ organization: 1, isDeleted: 1, updatedAt: -1 });
 
 export default mongoose.model<IPresentation>(
   "Presentation",
