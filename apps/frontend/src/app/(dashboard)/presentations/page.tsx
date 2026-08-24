@@ -90,9 +90,38 @@ export default function PresentationsPage() {
       if (res.ok) {
         const data = await res.json();
         router.push(`/presentations/${data._id}/edit`);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(
+          errData.error || errData.message || "Failed to create presentation",
+        );
       }
     } catch (error) {
       console.error("Failed to create presentation:", error);
+      alert("Failed to create presentation");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleDeletePresentation = async (id: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
+    try {
+      const token = getAccessToken();
+      if (!token) return;
+      const res = await fetch(`${API_URL}/api/presentations/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setPresentations((prev) => prev.filter((p) => p._id !== id));
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || err.message || "Failed to delete presentation");
+      }
+    } catch (error) {
+      console.error("Delete presentation error:", error);
+      alert("Failed to delete presentation");
     }
   };
 
@@ -223,6 +252,13 @@ export default function PresentationsPage() {
                     >
                       <Edit className="w-4 h-4" />
                     </Link>
+                    <button
+                      onClick={() => handleDeletePresentation(p._id, p.title)}
+                      className="p-2 text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors cursor-pointer"
+                      title="Delete Presentation"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               </div>

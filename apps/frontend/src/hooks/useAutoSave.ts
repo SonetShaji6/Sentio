@@ -12,6 +12,7 @@ export function useAutoSave<T>(
   const [saveState, setSaveState] = useState<
     "idle" | "saving" | "saved" | "error"
   >("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const previousDataRef = useRef<T>(initialData);
   const dataRef = useRef<T>(initialData);
   const isFirstRender = useRef(true);
@@ -63,15 +64,20 @@ export function useAutoSave<T>(
           body: JSON.stringify(targetData),
         });
 
-        if (!res.ok) throw new Error("Failed to save");
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody.error || errBody.message || "Failed to save");
+        }
 
         setSaveState("saved");
+        setErrorMessage(null);
         previousDataRef.current = targetData;
 
         setTimeout(() => setSaveState("idle"), 3000);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Immediate save failed:", error);
         setSaveState("error");
+        setErrorMessage(error.message || "Failed to save");
       }
     },
     [endpoint],
@@ -118,15 +124,20 @@ export function useAutoSave<T>(
           body: JSON.stringify(data),
         });
 
-        if (!res.ok) throw new Error("Failed to save");
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody.error || errBody.message || "Failed to save");
+        }
 
         setSaveState("saved");
+        setErrorMessage(null);
         previousDataRef.current = data;
 
         setTimeout(() => setSaveState("idle"), 3000);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Auto-save failed:", error);
         setSaveState("error");
+        setErrorMessage(error.message || "Failed to save");
       }
     }, delay);
 
@@ -142,6 +153,7 @@ export function useAutoSave<T>(
     updateData,
     saveImmediately,
     saveState,
+    errorMessage,
     setData,
   };
 }

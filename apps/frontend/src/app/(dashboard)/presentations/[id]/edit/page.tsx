@@ -49,6 +49,9 @@ export default function PresentationBuilder() {
   const [slides, setSlides] = useState<ISlide[]>([]);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [targetInsertIndex, setTargetInsertIndex] = useState<number | null>(
+    null,
+  );
   const [isAIGeneratorOpen, setIsAIGeneratorOpen] = useState(false);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const [isAIOpen, setIsAIOpen] = useState(false);
@@ -72,6 +75,7 @@ export default function PresentationBuilder() {
     updateData: updatePresentation,
     saveImmediately: savePresentationImmediately,
     saveState,
+    errorMessage: saveErrorMessage,
   } = useAutoSave<PresentationData>(
     `${API_URL}/api/presentations/${presentationId}`,
     initialData,
@@ -311,6 +315,9 @@ export default function PresentationBuilder() {
       config: {},
     };
 
+    const insertOrder =
+      targetInsertIndex !== null ? targetInsertIndex : slides.length;
+
     try {
       const res = await fetch(
         `${API_URL}/api/presentations/${presentationId}/slides`,
@@ -325,15 +332,22 @@ export default function PresentationBuilder() {
             title: preset.title,
             description: preset.description,
             config: preset.config,
-            order: slides.length,
+            order: insertOrder,
           }),
         },
       );
 
       if (res.ok) {
         const newSlide = await res.json();
-        setSlides([...slides, newSlide]);
+        const updatedSlides = [...slides];
+        updatedSlides.splice(insertOrder, 0, newSlide);
+        const reindexedSlides = updatedSlides.map((s, idx) => ({
+          ...s,
+          order: idx,
+        }));
+        setSlides(reindexedSlides);
         setActiveSlideId(newSlide._id);
+        setTargetInsertIndex(null);
         setIsAddModalOpen(false);
         setMobileTab("canvas");
       }
@@ -477,20 +491,20 @@ export default function PresentationBuilder() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-zinc-50 dark:bg-zinc-950">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-900 dark:border-white"></div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-zinc-100 dark:bg-zinc-950 overflow-hidden select-none">
+    <div className="h-screen flex flex-col bg-zinc-100 dark:bg-zinc-950 overflow-hidden select-none animate-fade-in">
       {/* Compact Slim Top Navbar */}
       <header className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-3 sm:px-4 py-1.5 flex items-center justify-between shrink-0 z-20 shadow-xs h-13">
         {/* Left: Back & Title */}
         <div className="flex items-center gap-2.5 min-w-0">
           <Link
             href="/presentations"
-            className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors shrink-0"
+            className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors shrink-0 active-press"
             title="Back to Presentations (Esc)"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -506,17 +520,22 @@ export default function PresentationBuilder() {
             />
             <div className="flex items-center gap-2 text-[10px] text-zinc-400">
               {saveState === "saving" && (
-                <span className="flex items-center text-blue-500">
+                <span className="flex items-center text-zinc-600 dark:text-zinc-400">
                   <Save className="w-2.5 h-2.5 mr-1 animate-pulse" /> Saving...
                 </span>
               )}
               {saveState === "saved" && (
-                <span className="flex items-center text-emerald-500">
+                <span className="flex items-center text-emerald-500 font-medium">
                   <CheckCircle className="w-2.5 h-2.5 mr-1" /> Saved
                 </span>
               )}
               {saveState === "error" && (
-                <span className="text-red-500">Save failed</span>
+                <span
+                  className="text-red-500 font-medium"
+                  title={saveErrorMessage || "Save failed"}
+                >
+                  {saveErrorMessage || "Save failed"}
+                </span>
               )}
             </div>
           </div>
@@ -562,21 +581,21 @@ export default function PresentationBuilder() {
           {/* Sentio AI Button */}
           <button
             onClick={() => setIsAIOpen(!isAIOpen)}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active-press ${
               isAIOpen
-                ? "bg-purple-600 text-white shadow-xs"
-                : "bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800/60"
+                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+                : "bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700/60"
             }`}
             title="Sentio AI Assistant (I)"
           >
-            <Sparkles className="w-3 h-3" />
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             <span className="hidden sm:inline">AI Studio</span>
           </button>
 
           {/* Theme Settings Button */}
           <button
             onClick={() => setIsThemeModalOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-200 rounded-xl text-xs font-bold transition-colors border border-zinc-200 dark:border-zinc-700/60"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold transition-all border border-zinc-200 dark:border-zinc-700/60 active-press"
             title="Theme & Colors (T)"
           >
             <div
@@ -589,7 +608,7 @@ export default function PresentationBuilder() {
           {/* Present Live CTA */}
           <Link
             href={`/presentations/${presentationId}/host`}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-colors shadow-xs cursor-pointer ml-1"
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-zinc-950 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-bold text-xs rounded-xl transition-all shadow-xs cursor-pointer ml-1 active-press hover-lift"
             title="Present Live (P or ⌘+Enter)"
           >
             <Play className="w-3 h-3 fill-current" />
@@ -602,30 +621,30 @@ export default function PresentationBuilder() {
       <div className="flex md:hidden bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-3 py-1 justify-around shrink-0 z-10">
         <button
           onClick={() => setMobileTab("navigator")}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-colors ${
             mobileTab === "navigator"
-              ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-              : "text-zinc-500"
+              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+              : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
           }`}
         >
           <Layers className="w-3.5 h-3.5" /> Slides ({slides.length})
         </button>
         <button
           onClick={() => setMobileTab("canvas")}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-colors ${
             mobileTab === "canvas"
-              ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-              : "text-zinc-500"
+              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+              : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
           }`}
         >
           <Eye className="w-3.5 h-3.5" /> Canvas
         </button>
         <button
           onClick={() => setMobileTab("config")}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-colors ${
             mobileTab === "config"
-              ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-              : "text-zinc-500"
+              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 shadow-xs"
+              : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
           }`}
         >
           <Sliders className="w-3.5 h-3.5" /> Customizer
@@ -648,7 +667,14 @@ export default function PresentationBuilder() {
               setActiveSlideId(id);
               setMobileTab("canvas");
             }}
-            onAddSlide={() => setIsAddModalOpen(true)}
+            onAddSlide={() => {
+              setTargetInsertIndex(null);
+              setIsAddModalOpen(true);
+            }}
+            onAddSlideAt={(index) => {
+              setTargetInsertIndex(index);
+              setIsAddModalOpen(true);
+            }}
             onDeleteSlide={handleDeleteSlide}
             onDuplicateSlide={handleDuplicateSlide}
             onReorderSlides={handleReorderSlides}
@@ -695,9 +721,13 @@ export default function PresentationBuilder() {
       {/* Modals */}
       <AddSlideModal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setTargetInsertIndex(null);
+        }}
         onAddSlide={handleAddSlide}
         onOpenAIGenerator={() => setIsAIGeneratorOpen(true)}
+        targetIndex={targetInsertIndex}
       />
 
       <AISlideGeneratorModal

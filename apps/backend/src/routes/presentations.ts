@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { requireAuth } from "../middleware/auth";
 import Presentation from "../models/Presentation";
 import Slide from "../models/Slide";
+import OrganizationMember from "../models/OrganizationMember";
 import { uploadFileToAzure, deleteFileFromAzure } from "../services/azure";
 import multer from "multer";
 import crypto from "crypto";
@@ -18,15 +19,104 @@ const generateShareId = () => crypto.randomBytes(8).toString("hex");
 const generateSessionCode = () =>
   Math.random().toString(36).substring(2, 8).toUpperCase();
 
+// Helper to escape regex characters
+function escapeRegex(text: string) {
+  return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+}
+
+// Helper to check user access to a presentation (either as owner or through organization membership)
+async function getAccessiblePresentation(id: string, userId: string) {
+  const userMemberships = await OrganizationMember.find({ user: userId });
+  const orgIds = userMemberships.map((m) => m.organization);
+
+  return Presentation.findOne({
+    _id: id,
+    isDeleted: false,
+    $or: [{ owner: userId }, { organization: { $in: orgIds } }],
+  });
+}
+
+// Helper to check duplicate presentation title in the scope (owner personal or organization)
+async function isTitleDuplicate(
+  title: string,
+  ownerId: string,
+  organizationId?: string,
+  excludePresentationId?: string,
+): Promise<boolean> {
+  const trimmed = title.trim();
+  if (!trimmed) return false;
+
+  const query: any = {
+    title: { $regex: new RegExp(`^${escapeRegex(trimmed)}$`, "i") },
+    isDeleted: false,
+  };
+
+  if (excludePresentationId) {
+    query._id = { $ne: excludePresentationId };
+  }
+
+  if (organizationId) {
+    query.organization = organizationId;
+  } else {
+    query.owner = ownerId;
+  }
+
+  const existing = await Presentation.findOne(query);
+  return !!existing;
+}
+
+// Helper to find the next available untitled name
+async function getNextUntitledName(
+  ownerId: string,
+  organizationId?: string,
+): Promise<string> {
+  const base = "Untitled Presentation";
+  if (!(await isTitleDuplicate(base, ownerId, organizationId))) {
+    return base;
+  }
+  let count = 2;
+  while (await isTitleDuplicate(`${base} ${count}`, ownerId, organizationId)) {
+    count++;
+  }
+  return `${base} ${count}`;
+}
+
 // ── 1. Create Presentation ──
 router.post("/", requireAuth, async (req: any, res: any): Promise<void> => {
   try {
     const userId = req.user!.id;
-    const { title, description, category, visibility, tags, theme } = req.body;
+    const {
+      title,
+      description,
+      category,
+      visibility,
+      tags,
+      theme,
+      organizationId,
+    } = req.body;
+
+    let finalTitle = (title || "").trim();
+
+    if (!finalTitle || finalTitle.toLowerCase() === "untitled presentation") {
+      finalTitle = await getNextUntitledName(userId, organizationId);
+    } else {
+      const isDuplicate = await isTitleDuplicate(
+        finalTitle,
+        userId,
+        organizationId,
+      );
+      if (isDuplicate) {
+        res
+          .status(400)
+          .json({ error: "A presentation with this name already exists" });
+        return;
+      }
+    }
 
     const newPresentation = new Presentation({
       owner: userId,
-      title: title || "Untitled Presentation",
+      organization: organizationId || undefined,
+      title: finalTitle,
       description: description || "",
       category: category || "General",
       visibility: visibility || "private",
@@ -52,12 +142,22 @@ router.get("/", requireAuth, async (req: any, res: any): Promise<void> => {
       search,
       status,
       category,
+      organizationId,
       page = "1",
       limit = "12",
       sort = "updatedAt",
     } = req.query;
 
-    const query: any = { owner: userId, isDeleted: false };
+    const userMemberships = await OrganizationMember.find({ user: userId });
+    const orgIds = userMemberships.map((m) => m.organization);
+
+    const query: any = { isDeleted: false };
+
+    if (organizationId) {
+      query.organization = organizationId;
+    } else {
+      query.$or = [{ owner: userId }, { organization: { $in: orgIds } }];
+    }
 
     if (search) {
       query.title = { $regex: search as string, $options: "i" };
@@ -77,6 +177,8 @@ router.get("/", requireAuth, async (req: any, res: any): Promise<void> => {
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
 
     const presentations = await Presentation.find(query)
+      .populate("organization", "name slug")
+      .populate("owner", "name email avatar")
       .sort(sortOption)
       .skip(skip)
       .limit(parseInt(limit as string));
@@ -100,10 +202,10 @@ router.get("/", requireAuth, async (req: any, res: any): Promise<void> => {
 // ── 3. Get Single Presentation ──
 router.get("/:id", requireAuth, async (req: any, res: any): Promise<void> => {
   try {
-    const presentation = await Presentation.findOne({
-      _id: req.params.id,
-      owner: req.user!.id,
-    });
+    const presentation = await getAccessiblePresentation(
+      req.params.id,
+      req.user!.id,
+    );
     if (!presentation) {
       res.status(404).json({ error: "Presentation not found" });
       return;
@@ -118,29 +220,64 @@ router.get("/:id", requireAuth, async (req: any, res: any): Promise<void> => {
 // ── 4. Update Presentation (Auto-save) ──
 router.put("/:id", requireAuth, async (req: any, res: any): Promise<void> => {
   try {
-    // Only allow specific fields to be updated
-    const { title, description, category, visibility, tags, theme, status } =
-      req.body;
-
-    const updateData: any = {};
-    if (title !== undefined) updateData.title = title;
-    if (description !== undefined) updateData.description = description;
-    if (category !== undefined) updateData.category = category;
-    if (visibility !== undefined) updateData.visibility = visibility;
-    if (tags !== undefined) updateData.tags = tags;
-    if (theme !== undefined) updateData.theme = theme;
-    if (status !== undefined) updateData.status = status;
-
-    const presentation = await Presentation.findOneAndUpdate(
-      { _id: req.params.id, owner: req.user!.id, isDeleted: false },
-      { $set: updateData },
-      { returnDocument: "after" },
+    const presentation = await getAccessiblePresentation(
+      req.params.id,
+      req.user!.id,
     );
-
     if (!presentation) {
       res.status(404).json({ error: "Presentation not found" });
       return;
     }
+
+    // Only allow specific fields to be updated
+    const {
+      title,
+      description,
+      category,
+      visibility,
+      tags,
+      theme,
+      status,
+      organizationId,
+    } = req.body;
+
+    if (title !== undefined) {
+      const trimmedTitle = title.trim();
+      if (!trimmedTitle) {
+        res.status(400).json({ error: "Presentation title cannot be empty" });
+        return;
+      }
+
+      if (trimmedTitle.toLowerCase() !== presentation.title.toLowerCase()) {
+        const isDuplicate = await isTitleDuplicate(
+          trimmedTitle,
+          presentation.owner.toString(),
+          organizationId !== undefined
+            ? organizationId
+            : presentation.organization?.toString(),
+          presentation._id.toString(),
+        );
+
+        if (isDuplicate) {
+          res
+            .status(400)
+            .json({ error: "A presentation with this name already exists" });
+          return;
+        }
+      }
+      presentation.title = trimmedTitle;
+    }
+
+    if (description !== undefined) presentation.description = description;
+    if (category !== undefined) presentation.category = category;
+    if (visibility !== undefined) presentation.visibility = visibility;
+    if (tags !== undefined) presentation.tags = tags;
+    if (theme !== undefined) presentation.theme = theme;
+    if (status !== undefined) presentation.status = status;
+    if (organizationId !== undefined)
+      presentation.organization = organizationId || undefined;
+
+    await presentation.save();
     res.json(presentation);
   } catch (error) {
     console.error("Update presentation error:", error);
@@ -154,16 +291,40 @@ router.delete(
   requireAuth,
   async (req: any, res: any): Promise<void> => {
     try {
-      const presentation = await Presentation.findOneAndUpdate(
-        { _id: req.params.id, owner: req.user!.id },
-        { isDeleted: true, deletedAt: new Date() },
-        { returnDocument: "after" },
-      );
+      const user = req.user!;
+      const presentation = await Presentation.findOne({
+        _id: req.params.id,
+        isDeleted: false,
+      });
 
       if (!presentation) {
         res.status(404).json({ error: "Presentation not found" });
         return;
       }
+
+      let canDelete = false;
+      if (user.role === "admin" || presentation.owner.toString() === user.id) {
+        canDelete = true;
+      } else if (presentation.organization) {
+        const membership = await OrganizationMember.findOne({
+          organization: presentation.organization,
+          user: user.id,
+          role: { $in: ["owner", "admin"] },
+        });
+        if (membership) canDelete = true;
+      }
+
+      if (!canDelete) {
+        res
+          .status(403)
+          .json({ error: "Permission denied to delete this presentation" });
+        return;
+      }
+
+      presentation.isDeleted = true;
+      presentation.deletedAt = new Date();
+      await presentation.save();
+
       res.json({ success: true, presentation });
     } catch (error) {
       console.error("Delete presentation error:", error);
@@ -187,9 +348,23 @@ router.post(
         return;
       }
 
+      let copyTitle = `${original.title} (Copy)`;
+      let copyCount = 2;
+      while (
+        await isTitleDuplicate(
+          copyTitle,
+          req.user!.id,
+          original.organization?.toString(),
+        )
+      ) {
+        copyTitle = `${original.title} (Copy ${copyCount})`;
+        copyCount++;
+      }
+
       const duplicate = new Presentation({
         owner: req.user!.id,
-        title: `${original.title} (Copy)`,
+        organization: original.organization,
+        title: copyTitle,
         description: original.description,
         category: original.category,
         visibility: "private", // Default to private for copies
@@ -474,10 +649,10 @@ router.get(
   requireAuth,
   async (req: any, res: any): Promise<void> => {
     try {
-      const presentation = await Presentation.findOne({
-        _id: req.params.id,
-        owner: req.user!.id,
-      });
+      const presentation = await getAccessiblePresentation(
+        req.params.id,
+        req.user!.id,
+      );
       if (!presentation) {
         res.status(404).json({ error: "Presentation not found" });
         return;
@@ -500,10 +675,10 @@ router.post(
   requireAuth,
   async (req: any, res: any): Promise<void> => {
     try {
-      const presentation = await Presentation.findOne({
-        _id: req.params.id,
-        owner: req.user!.id,
-      });
+      const presentation = await getAccessiblePresentation(
+        req.params.id,
+        req.user!.id,
+      );
       if (!presentation) {
         res.status(404).json({ error: "Presentation not found" });
         return;
@@ -512,11 +687,21 @@ router.post(
       const { type, order, title, description, config } = req.body;
 
       let newOrder = order;
-      if (newOrder === undefined) {
+      if (newOrder === undefined || newOrder === null) {
         const lastSlide = await Slide.findOne({
           presentationId: presentation._id,
         }).sort({ order: -1 });
         newOrder = lastSlide ? lastSlide.order + 1 : 0;
+      } else {
+        newOrder = Number(newOrder);
+        // Shift existing slides at or after this position
+        await Slide.updateMany(
+          {
+            presentationId: presentation._id,
+            order: { $gte: newOrder },
+          },
+          { $inc: { order: 1 } },
+        );
       }
 
       const slide = new Slide({
@@ -543,10 +728,10 @@ router.put(
   requireAuth,
   async (req: any, res: any): Promise<void> => {
     try {
-      const presentation = await Presentation.findOne({
-        _id: req.params.id,
-        owner: req.user!.id,
-      });
+      const presentation = await getAccessiblePresentation(
+        req.params.id,
+        req.user!.id,
+      );
       if (!presentation) {
         res.status(404).json({ error: "Presentation not found" });
         return;
@@ -583,10 +768,10 @@ router.get(
   requireAuth,
   async (req: any, res: any): Promise<void> => {
     try {
-      const presentation = await Presentation.findOne({
-        _id: req.params.id,
-        owner: req.user!.id,
-      });
+      const presentation = await getAccessiblePresentation(
+        req.params.id,
+        req.user!.id,
+      );
       if (!presentation) {
         res.status(404).json({ error: "Presentation not found" });
         return;
@@ -615,10 +800,10 @@ router.put(
   requireAuth,
   async (req: any, res: any): Promise<void> => {
     try {
-      const presentation = await Presentation.findOne({
-        _id: req.params.id,
-        owner: req.user!.id,
-      });
+      const presentation = await getAccessiblePresentation(
+        req.params.id,
+        req.user!.id,
+      );
       if (!presentation) {
         res.status(404).json({ error: "Presentation not found" });
         return;
@@ -677,10 +862,10 @@ router.delete(
   requireAuth,
   async (req: any, res: any): Promise<void> => {
     try {
-      const presentation = await Presentation.findOne({
-        _id: req.params.id,
-        owner: req.user!.id,
-      });
+      const presentation = await getAccessiblePresentation(
+        req.params.id,
+        req.user!.id,
+      );
       if (!presentation) {
         res.status(404).json({ error: "Presentation not found" });
         return;
@@ -717,10 +902,10 @@ router.post(
   requireAuth,
   async (req: any, res: any): Promise<void> => {
     try {
-      const presentation = await Presentation.findOne({
-        _id: req.params.id,
-        owner: req.user!.id,
-      });
+      const presentation = await getAccessiblePresentation(
+        req.params.id,
+        req.user!.id,
+      );
       if (!presentation) {
         res.status(404).json({ error: "Presentation not found" });
         return;
@@ -776,10 +961,10 @@ router.post(
         return;
       }
 
-      const presentation = await Presentation.findOne({
-        _id: req.params.id,
-        owner: req.user!.id,
-      });
+      const presentation = await getAccessiblePresentation(
+        req.params.id,
+        req.user!.id,
+      );
       if (!presentation) {
         res.status(404).json({ error: "Presentation not found" });
         return;

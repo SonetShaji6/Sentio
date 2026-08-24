@@ -20,11 +20,9 @@ router.post(
   async (req: any, res: any): Promise<void> => {
     try {
       if (!req.file) {
-        res
-          .status(400)
-          .json({
-            message: "No file provided in form-data ('file' key expected).",
-          });
+        res.status(400).json({
+          message: "No file provided in form-data ('file' key expected).",
+        });
         return;
       }
 
@@ -155,6 +153,33 @@ router.get(
     } catch (error) {
       console.error("Version history error:", error);
       res.status(500).json({ message: "Failed to retrieve version history" });
+    }
+  },
+);
+
+// ── Convert Document/PPT to Presentation ──
+router.post(
+  "/:id/convert-presentation",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const { slideCount, tone } = req.body;
+      const result = await fileService.convertFileToPresentation(
+        req.params.id,
+        req.user.id,
+        {
+          slideCount: slideCount ? Number(slideCount) : undefined,
+          tone,
+        },
+      );
+      res.status(201).json(result);
+    } catch (error: any) {
+      console.error("Convert to presentation error:", error);
+      res
+        .status(400)
+        .json({
+          message: error.message || "Failed to convert file to presentation",
+        });
     }
   },
 );

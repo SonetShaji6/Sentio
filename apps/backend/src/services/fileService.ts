@@ -225,3 +225,122 @@ export async function deleteFileResource(fileId: string, ownerId: string) {
     }
   }
 }
+
+export async function convertFileToPresentation(
+  fileId: string,
+  ownerId: string,
+  options?: { slideCount?: number; tone?: string },
+) {
+  const fileDoc = await FileResource.findOne({ _id: fileId, owner: ownerId });
+  if (!fileDoc) {
+    throw new Error("File not found or access denied");
+  }
+
+  const title = (
+    fileDoc.originalName.replace(/\.[^/.]+$/, "") || "Converted Presentation"
+  ).trim();
+  const extractedText = fileDoc.extractedText || "";
+
+  if (!extractedText.trim()) {
+    throw new Error(
+      "Document content is still processing or empty. Please wait a moment and try again.",
+    );
+  }
+
+  const { aiService } = await import("../ai/AIService");
+  const Presentation = (await import("../models/Presentation")).default;
+  const Slide = (await import("../models/Slide")).default;
+  const crypto = await import("crypto");
+
+  // Check 1: Has a presentation already been created from this file?
+  if (fileDoc.presentationId) {
+    const existingPres = await Presentation.findOne({
+      _id: fileDoc.presentationId,
+      isDeleted: false,
+    });
+    if (existingPres) {
+      throw new Error(
+        `Presentation already exists for this file: "${existingPres.title}"`,
+      );
+    }
+  }
+
+  // Check 2: Does a presentation with this name already exist for this owner?
+  const escapedTitle = title.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+  const existingByName = await Presentation.findOne({
+    owner: ownerId,
+    title: { $regex: new RegExp(`^${escapedTitle}$`, "i") },
+    isDeleted: false,
+  });
+
+  if (existingByName) {
+    // If not linked yet, link it so future checks are quick
+    if (!fileDoc.presentationId) {
+      fileDoc.presentationId = existingByName._id as any;
+      await fileDoc.save();
+    }
+    throw new Error(
+      `Presentation already exists with the name "${existingByName.title}"`,
+    );
+  }
+
+  const requestedCount =
+    options?.slideCount ||
+    Math.min(Math.max(fileDoc.extractedMetadata?.slideCount || 5, 3), 10);
+  const tone = options?.tone || "engaging";
+
+  // Generate full deck using default AI (Gemini Flash Lite -> Groq fallback)
+  const generatedSlides = await aiService.generateFullDeck(
+    title,
+    requestedCount,
+    tone,
+    undefined,
+    extractedText,
+  );
+
+  if (
+    !generatedSlides ||
+    !Array.isArray(generatedSlides) ||
+    generatedSlides.length === 0
+  ) {
+    throw new Error(
+      "AI could not generate presentation slides from this document.",
+    );
+  }
+
+  const shareId = crypto.randomBytes(8).toString("hex");
+  const presentation = new Presentation({
+    owner: ownerId,
+    title: title || "Converted Presentation",
+    description: `Auto-generated from uploaded file: ${fileDoc.originalName}`,
+    category: "General",
+    visibility: "private",
+    theme: "default",
+    shareId,
+    tags: ["converted", fileDoc.category || "presentation"],
+  });
+
+  await presentation.save();
+
+  const slideDocs = generatedSlides.map((slide: any, index: number) => ({
+    presentationId: presentation._id,
+    type: slide.type || "information",
+    order: index,
+    title: slide.title || `Slide ${index + 1}`,
+    description: slide.description || "",
+    config: slide.config || {},
+    isHidden: false,
+    isLocked: false,
+  }));
+
+  const createdSlides = await Slide.insertMany(slideDocs);
+
+  // Link fileDoc to the newly created presentation
+  fileDoc.presentationId = presentation._id as any;
+  await fileDoc.save();
+
+  return {
+    presentation,
+    slides: createdSlides,
+  };
+}
