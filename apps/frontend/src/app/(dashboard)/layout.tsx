@@ -44,8 +44,8 @@ export default function DashboardLayout({
 
   if (loading) {
     return (
-      <div className="dashboard-loading flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-950">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      <div className="dashboard-loading flex items-center justify-center h-screen bg-zinc-50 dark:bg-zinc-950">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-900 dark:border-white" />
       </div>
     );
   }

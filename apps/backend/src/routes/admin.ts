@@ -7,6 +7,7 @@ import FileResource from "../models/FileResource";
 import AILog from "../models/AILog";
 import AuditLog from "../models/AuditLog";
 import Organization from "../models/Organization";
+import OrganizationMember from "../models/OrganizationMember";
 
 const router = Router();
 
@@ -98,13 +99,28 @@ router.get("/users", async (req: any, res: any): Promise<void> => {
     const pageNum = parseInt(page as string);
     const limitNum = parseInt(limit as string);
 
-    const users = await User.find(filter)
+    const userDocs = await User.find(filter)
       .select("-passwordHash")
       .sort({ createdAt: -1 })
       .skip((pageNum - 1) * limitNum)
       .limit(limitNum);
 
     const total = await User.countDocuments(filter);
+
+    // Enhance users with presentation and file counts
+    const users = await Promise.all(
+      userDocs.map(async (u) => {
+        const [presentationsCount, filesCount] = await Promise.all([
+          Presentation.countDocuments({ owner: u._id, isDeleted: false }),
+          FileResource.countDocuments({ owner: u._id, isLatestVersion: true }),
+        ]);
+        return {
+          ...u.toObject(),
+          presentationsCount,
+          filesCount,
+        };
+      }),
+    );
 
     res.json({
       users,
@@ -115,6 +131,216 @@ router.get("/users", async (req: any, res: any): Promise<void> => {
   } catch (error) {
     console.error("Admin list users error:", error);
     res.status(500).json({ message: "Failed to list users" });
+  }
+});
+
+// ── Get Presentations by User ──
+router.get(
+  "/users/:id/presentations",
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const presentations = await Presentation.find({
+        owner: req.params.id,
+        isDeleted: false,
+      })
+        .populate("organization", "name slug")
+        .sort({ updatedAt: -1 });
+
+      res.json(presentations);
+    } catch (error) {
+      console.error("Admin get user presentations error:", error);
+      res.status(500).json({ message: "Failed to load user presentations" });
+    }
+  },
+);
+
+// ── Get Knowledge Base / Files by User ──
+router.get("/users/:id/files", async (req: any, res: any): Promise<void> => {
+  try {
+    const files = await FileResource.find({
+      owner: req.params.id,
+      isLatestVersion: true,
+    }).sort({ createdAt: -1 });
+
+    res.json(files);
+  } catch (error) {
+    console.error("Admin get user files error:", error);
+    res.status(500).json({ message: "Failed to load user knowledge base" });
+  }
+});
+
+// ── Global Presentations Management (Admin View) ──
+router.get("/presentations", async (req: any, res: any): Promise<void> => {
+  try {
+    const {
+      q,
+      userId,
+      organizationId,
+      status,
+      page = 1,
+      limit = 24,
+    } = req.query;
+    const filter: any = { isDeleted: false };
+
+    if (q) {
+      filter.title = { $regex: (q as string).trim(), $options: "i" };
+    }
+    if (userId) filter.owner = userId;
+    if (organizationId) filter.organization = organizationId;
+    if (status) filter.status = status;
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+
+    const presentations = await Presentation.find(filter)
+      .populate("owner", "name email avatar")
+      .populate("organization", "name slug")
+      .sort({ updatedAt: -1 })
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum);
+
+    const total = await Presentation.countDocuments(filter);
+
+    res.json({
+      presentations,
+      total,
+      page: pageNum,
+      pages: Math.ceil(total / limitNum),
+    });
+  } catch (error) {
+    console.error("Admin list presentations error:", error);
+    res.status(500).json({ message: "Failed to list presentations" });
+  }
+});
+
+// ── Admin Delete Presentation ──
+router.delete(
+  "/presentations/:id",
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const presentation = await Presentation.findById(req.params.id);
+      if (!presentation) {
+        res.status(404).json({ message: "Presentation not found" });
+        return;
+      }
+
+      presentation.isDeleted = true;
+      presentation.deletedAt = new Date();
+      await presentation.save();
+
+      await AuditLog.create({
+        user: req.user.id,
+        action: "PRESENTATION_DELETED",
+        target: presentation.title,
+        details: {
+          presentationId: presentation._id,
+          owner: presentation.owner,
+        },
+      });
+
+      res.json({ message: "Presentation deleted successfully by admin" });
+    } catch (error) {
+      console.error("Admin delete presentation error:", error);
+      res.status(500).json({ message: "Failed to delete presentation" });
+    }
+  },
+);
+
+// ── Global Knowledge Base / Files (Admin View) ──
+router.get("/files", async (req: any, res: any): Promise<void> => {
+  try {
+    const { q, userId, category, page = 1, limit = 24 } = req.query;
+    const filter: any = { isLatestVersion: true };
+
+    if (q) {
+      filter.originalName = { $regex: (q as string).trim(), $options: "i" };
+    }
+    if (userId) filter.owner = userId;
+    if (category && category !== "all") filter.category = category;
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+
+    const files = await FileResource.find(filter)
+      .populate("owner", "name email avatar")
+      .sort({ createdAt: -1 })
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum);
+
+    const total = await FileResource.countDocuments(filter);
+
+    res.json({
+      files,
+      total,
+      page: pageNum,
+      pages: Math.ceil(total / limitNum),
+    });
+  } catch (error) {
+    console.error("Admin list files error:", error);
+    res.status(500).json({ message: "Failed to list knowledge files" });
+  }
+});
+
+// ── Global Organizations Overview ──
+router.get("/organizations", async (_req: any, res: any): Promise<void> => {
+  try {
+    const orgs = await Organization.find()
+      .populate("owner", "name email avatar")
+      .sort({ createdAt: -1 });
+
+    const enrichedOrgs = await Promise.all(
+      orgs.map(async (org) => {
+        const [memberCount, presentationCount] = await Promise.all([
+          OrganizationMember.countDocuments({ organization: org._id }),
+          Presentation.countDocuments({
+            organization: org._id,
+            isDeleted: false,
+          }),
+        ]);
+        return {
+          ...org.toObject(),
+          memberCount,
+          presentationCount,
+        };
+      }),
+    );
+
+    res.json(enrichedOrgs);
+  } catch (error) {
+    console.error("Admin list organizations error:", error);
+    res.status(500).json({ message: "Failed to list organizations" });
+  }
+});
+
+// ── Single Organization Details (Members & Presentations) ──
+router.get("/organizations/:id", async (req: any, res: any): Promise<void> => {
+  try {
+    const org = await Organization.findById(req.params.id).populate(
+      "owner",
+      "name email avatar",
+    );
+    if (!org) {
+      res.status(404).json({ message: "Organization not found" });
+      return;
+    }
+
+    const [members, presentations] = await Promise.all([
+      OrganizationMember.find({ organization: org._id })
+        .populate("user", "name email avatar role isBlocked")
+        .sort({ createdAt: 1 }),
+      Presentation.find({ organization: org._id, isDeleted: false })
+        .populate("owner", "name email avatar")
+        .sort({ updatedAt: -1 }),
+    ]);
+
+    res.json({
+      organization: org,
+      members,
+      presentations,
+    });
+  } catch (error) {
+    console.error("Admin get organization details error:", error);
+    res.status(500).json({ message: "Failed to load organization details" });
   }
 });
 

@@ -180,7 +180,7 @@ export default function SettingsPage() {
                     className="w-24 h-24 rounded-full object-cover shadow-sm bg-gray-50 border border-gray-100"
                   />
                 ) : (
-                  <div className="w-24 h-24 rounded-full bg-blue-600 text-white flex items-center justify-center text-3xl font-bold shadow-sm">
+                  <div className="w-24 h-24 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center text-3xl font-bold shadow-sm">
                     {name
                       .split(" ")
                       .map((n) => n[0])
@@ -195,7 +195,7 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="btn btn-primary text-sm h-10 px-4"
+                      className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-bold text-xs rounded-xl shadow-xs transition-all active-press cursor-pointer"
                       disabled={uploading}
                     >
                       {uploading ? "Uploading..." : "Upload Custom"}
@@ -203,13 +203,13 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={handleGenerateAvatar}
-                      className="btn btn-secondary text-sm h-10 px-4"
+                      className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-bold text-xs rounded-xl border border-zinc-200 dark:border-zinc-700 transition-all active-press cursor-pointer"
                       disabled={uploading}
                     >
                       Randomize
                     </button>
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-zinc-500">
                     Max 5MB. Custom images are stored securely on Azure.
                   </p>
                   <input
@@ -226,13 +226,16 @@ export default function SettingsPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
-                <label htmlFor="name" className="label block mb-2">
+                <label
+                  htmlFor="name"
+                  className="label block mb-2 font-bold text-xs text-zinc-700 dark:text-zinc-300"
+                >
                   Full Name
                 </label>
                 <input
                   id="name"
                   type="text"
-                  className="input-field w-full"
+                  className="input-field w-full rounded-xl text-sm"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
@@ -240,14 +243,16 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className="label block mb-2">Email Address</label>
+                <label className="label block mb-2 font-bold text-xs text-zinc-700 dark:text-zinc-300">
+                  Email Address
+                </label>
                 <input
                   type="email"
-                  className="input-field w-full opacity-60 bg-gray-50 cursor-not-allowed"
+                  className="input-field w-full opacity-60 bg-zinc-100 dark:bg-zinc-800 cursor-not-allowed rounded-xl text-sm"
                   value={user?.email}
                   disabled
                 />
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-zinc-500 mt-2">
                   Email cannot be changed.
                 </p>
               </div>
@@ -256,15 +261,17 @@ export default function SettingsPage() {
         </div>
 
         {/* PREFERENCES SECTION */}
-        <div className="section-card">
-          <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">
+        <div className="section-card hover-lift transition-all">
+          <h2 className="text-lg font-bold mb-4 text-zinc-900 dark:text-zinc-100">
             Preferences
           </h2>
           <div className="space-y-6">
             <div>
-              <label className="label block mb-2">Theme</label>
+              <label className="label block mb-2 font-bold text-xs text-zinc-700 dark:text-zinc-300">
+                Theme
+              </label>
               <select
-                className="input-field w-full sm:w-1/2"
+                className="input-field w-full sm:w-1/2 rounded-xl text-sm"
                 value={themePref}
                 onChange={(e) => setThemePref(e.target.value as any)}
               >
@@ -275,27 +282,29 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <h3 className="label block mb-3">Notifications</h3>
+              <h3 className="label block mb-3 font-bold text-xs text-zinc-700 dark:text-zinc-300">
+                Notifications
+              </h3>
               <div className="space-y-3">
-                <label className="flex items-center gap-3">
+                <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={emailNotifs}
                     onChange={(e) => setEmailNotifs(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    className="w-4 h-4 rounded text-zinc-900 focus:ring-zinc-900 dark:text-white"
                   />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="text-sm text-zinc-700 dark:text-zinc-300">
                     Email Notifications
                   </span>
                 </label>
-                <label className="flex items-center gap-3">
+                <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={pushNotifs}
                     onChange={(e) => setPushNotifs(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    className="w-4 h-4 rounded text-zinc-900 focus:ring-zinc-900 dark:text-white"
                   />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="text-sm text-zinc-700 dark:text-zinc-300">
                     Push Notifications
                   </span>
                 </label>
