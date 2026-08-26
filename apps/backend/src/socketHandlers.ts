@@ -483,10 +483,12 @@ function registerInteractionEvents(socket: Socket, io: Server): void {
               // Send individual feedback to participant
               socket.emit(SOCKET_EVENTS.INTERACTION_RESULT, {
                 type: "quiz",
-                isCorrect: result.isCorrect,
-                scoreAwarded: result.scoreAwarded,
-                correctAnswers: result.correctAnswers,
-                selectedOptions: payload.selectedOptions,
+                isCorrect: Boolean(result.isCorrect),
+                scoreAwarded: result.scoreAwarded ?? 0,
+                correctAnswers: result.correctAnswers ?? [],
+                selectedOptions: payload.selectedOptions ?? [],
+                slideId,
+                success: true,
               });
 
               // Update leaderboard
@@ -557,8 +559,8 @@ function registerInteractionEvents(socket: Socket, io: Server): void {
           socket.emit(SOCKET_EVENTS.INTERACTION_ERROR, {
             message: result.error,
           });
-        } else {
-          // Confirm successful submission to the participant
+        } else if (type !== "quiz") {
+          // Confirm successful submission to the participant for non-quiz interactions
           socket.emit(SOCKET_EVENTS.INTERACTION_RESULT, {
             type,
             success: true,

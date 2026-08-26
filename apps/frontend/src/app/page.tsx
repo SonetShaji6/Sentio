@@ -14,9 +14,21 @@ import {
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Sentio - AI-Enhanced Audience Engagement",
+  title:
+    "Sentio — AI-Powered Interactive Presentations & Real-Time Audience Engagement",
   description:
-    "Sentio empowers teams with secure, fast, and intelligent cloud dashboards and live audience engagement tools.",
+    "Transform presentations into interactive live experiences with AI slide creation, real-time polling, live Q&A, and document conversion.",
+  keywords: [
+    "AI presentations",
+    "live audience engagement",
+    "interactive slides",
+    "real-time polling",
+    "AI quiz generator",
+    "audience engagement software",
+  ],
+  alternates: {
+    canonical: "/",
+  },
 };
 
 export default function Home() {

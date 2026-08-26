@@ -12,25 +12,36 @@ import {
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Features - Sentio",
+  title:
+    "Features — Interactive Presentations, AI Quizzes & Live Audience Polling",
   description:
-    "Explore the powerful features of Sentio, designed to make your presentations interactive and engaging.",
+    "Explore Sentio features: AI slide generation, live audience polling, real-time Q&A, sentiment analytics, and seamless document-to-presentation conversions.",
+  keywords: [
+    "interactive presentation features",
+    "AI quiz generator",
+    "live polling tool",
+    "audience engagement analytics",
+    "real-time Q&A system",
+  ],
+  alternates: {
+    canonical: "/features",
+  },
 };
 
 export default function FeaturesPage() {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col transition-colors">
       <Navbar />
 
       <main className="flex-grow py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+            <h1 className="text-4xl font-black tracking-tight text-zinc-950 dark:text-white sm:text-5xl">
               Powerful tools for modern presenters
             </h1>
-            <p className="mt-6 text-xl text-gray-600">
+            <p className="mt-6 text-lg text-zinc-600 dark:text-zinc-400 leading-relaxed">
               Everything you need to engage, analyze, and understand your
-              audience in real-time.
+              audience in real-time with AI-driven intelligence.
             </p>
           </div>
 
@@ -38,12 +49,12 @@ export default function FeaturesPage() {
             <FeatureCard
               icon={<BarChart3 className="w-6 h-6" />}
               title="Live Polling"
-              description="Create multiple-choice, word cloud, and open-ended polls that update instantly as your audience votes. Visualize responses in beautiful, customizable charts."
+              description="Create multiple-choice, word cloud, and open-ended polls that update instantly as your audience votes. Visualize responses in beautiful charts."
             />
             <FeatureCard
               icon={<Zap className="w-6 h-6" />}
               title="AI-Generated Quizzes"
-              description="Turn any topic into an interactive quiz instantly with our AI assistant. Upload your presentation deck and let Sentio generate relevant questions automatically."
+              description="Turn any topic or uploaded file into an interactive quiz instantly with our AI assistant. Sentio generates relevant questions automatically."
             />
             <FeatureCard
               icon={<LineChart className="w-6 h-6" />}
@@ -53,17 +64,17 @@ export default function FeaturesPage() {
             <FeatureCard
               icon={<MessageSquare className="w-6 h-6" />}
               title="Interactive Q&A"
-              description="Let your audience ask questions anonymously, upvote the best ones, and address them during your presentation. Keep the conversation organized."
+              description="Let your audience ask questions anonymously, upvote the best ones, and address them live. Keep conversations structured."
             />
             <FeatureCard
               icon={<LayoutDashboard className="w-6 h-6" />}
               title="Real-Time Dashboards"
-              description="Beautiful, responsive dashboards that present data clearly to both you and your audience. Customize the look and feel to match your brand."
+              description="Minimalist, responsive dashboards that present data clearly to both you and your audience. Seamlessly match your brand."
             />
             <FeatureCard
               icon={<Users className="w-6 h-6" />}
               title="Role-Based Access"
-              description="Securely manage permissions for administrators, presenters, and participants. Ensure sensitive data is only accessible to authorized personnel."
+              description="Securely manage permissions for administrators, presenters, and participants. Ensure sensitive workspace data is protected."
             />
           </div>
         </div>
