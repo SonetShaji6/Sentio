@@ -30,11 +30,14 @@ export const metadata: Metadata = {
 
 export default function FeaturesPage() {
   return (
-    <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col transition-colors">
+    <div className="min-h-screen bg-white dark:bg-[#090a0f] text-zinc-900 dark:text-zinc-100 flex flex-col transition-colors">
       <Navbar />
 
-      <main className="flex-grow py-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <main className="flex-grow py-20 sm:py-28 relative overflow-hidden">
+        {/* Ambient Glow */}
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-[140px] pointer-events-none" />
+
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center max-w-3xl mx-auto mb-16">
             <h1 className="text-4xl font-black tracking-tight text-zinc-950 dark:text-white sm:text-5xl">
               Powerful tools for modern presenters
@@ -47,32 +50,34 @@ export default function FeaturesPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             <FeatureCard
-              icon={<BarChart3 className="w-6 h-6" />}
+              icon={
+                <BarChart3 className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+              }
               title="Live Polling"
               description="Create multiple-choice, word cloud, and open-ended polls that update instantly as your audience votes. Visualize responses in beautiful charts."
             />
             <FeatureCard
-              icon={<Zap className="w-6 h-6" />}
+              icon={<Zap className="w-6 h-6 text-amber-500" />}
               title="AI-Generated Quizzes"
               description="Turn any topic or uploaded file into an interactive quiz instantly with our AI assistant. Sentio generates relevant questions automatically."
             />
             <FeatureCard
-              icon={<LineChart className="w-6 h-6" />}
+              icon={<LineChart className="w-6 h-6 text-emerald-500" />}
               title="Audience Analytics"
               description="Track engagement levels, understand drop-off points, and measure comprehension in real-time with comprehensive post-session reports."
             />
             <FeatureCard
-              icon={<MessageSquare className="w-6 h-6" />}
+              icon={<MessageSquare className="w-6 h-6 text-blue-500" />}
               title="Interactive Q&A"
               description="Let your audience ask questions anonymously, upvote the best ones, and address them live. Keep conversations structured."
             />
             <FeatureCard
-              icon={<LayoutDashboard className="w-6 h-6" />}
+              icon={<LayoutDashboard className="w-6 h-6 text-purple-500" />}
               title="Real-Time Dashboards"
               description="Minimalist, responsive dashboards that present data clearly to both you and your audience. Seamlessly match your brand."
             />
             <FeatureCard
-              icon={<Users className="w-6 h-6" />}
+              icon={<Users className="w-6 h-6 text-rose-500" />}
               title="Role-Based Access"
               description="Securely manage permissions for administrators, presenters, and participants. Ensure sensitive workspace data is protected."
             />

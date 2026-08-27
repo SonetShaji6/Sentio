@@ -109,8 +109,10 @@ function ResetPasswordForm() {
   if (successMsg) {
     return (
       <div className="text-center py-8">
-        <h2 className="text-2xl font-semibold text-gray-900 mb-4">Success!</h2>
-        <p className="text-gray-600 mb-6">{successMsg}</p>
+        <h2 className="text-2xl font-semibold text-slate-900 dark:text-white mb-4">
+          Success!
+        </h2>
+        <p className="text-slate-600 dark:text-slate-300 mb-6">{successMsg}</p>
         <Link href="/login" className="btn btn-primary">
           Go to Sign In
         </Link>
@@ -121,10 +123,10 @@ function ResetPasswordForm() {
   return (
     <>
       <div className="mb-8">
-        <h2 className="text-[22px] font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
+        <h2 className="text-[22px] font-semibold tracking-tight text-slate-900 dark:text-white mb-2">
           Reset Password
         </h2>
-        <p className="text-[14px] text-gray-500">
+        <p className="text-[14px] text-slate-500 dark:text-slate-400">
           Enter your new password below.
         </p>
       </div>
@@ -133,7 +135,10 @@ function ResetPasswordForm() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label htmlFor="email" className="label">
+          <label
+            htmlFor="email"
+            className="label text-slate-900 dark:text-slate-200"
+          >
             Email Address
           </label>
           <input
@@ -152,7 +157,10 @@ function ResetPasswordForm() {
         </div>
 
         <div>
-          <label htmlFor="password" className="label">
+          <label
+            htmlFor="password"
+            className="label text-slate-900 dark:text-slate-200"
+          >
             New Password
           </label>
           <input
@@ -171,14 +179,17 @@ function ResetPasswordForm() {
         </div>
 
         <div>
-          <label htmlFor="confirmPassword" className="label">
+          <label
+            htmlFor="confirmPassword"
+            className="label text-slate-900 dark:text-slate-200"
+          >
             Confirm New Password
           </label>
           <input
             id="confirmPassword"
             type="password"
             className={`input-field ${getError("confirmPassword") ? "input-error" : ""}`}
-            placeholder="Re-enter your password"
+            placeholder="Re-enter your new password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             disabled={loading || !token}
@@ -194,9 +205,19 @@ function ResetPasswordForm() {
           className="btn btn-primary w-full mt-2"
           disabled={loading || !token}
         >
-          {loading ? "Resetting…" : "Reset Password"}
+          {loading ? "Resetting password…" : "Reset Password"}
         </button>
       </form>
+
+      <p className="mt-8 text-center text-[14px] text-slate-500 dark:text-slate-400">
+        Remember your password?{" "}
+        <Link
+          href="/login"
+          className="font-semibold text-slate-900 dark:text-white hover:underline decoration-slate-300 dark:decoration-slate-600 underline-offset-4"
+        >
+          Sign in
+        </Link>
+      </p>
     </>
   );
 }

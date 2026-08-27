@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col transition-colors">
+    <div className="min-h-screen bg-white dark:bg-[#090a0f] text-zinc-900 dark:text-zinc-100 flex flex-col transition-colors">
       <Navbar />
 
       <main className="flex-grow">
@@ -48,8 +48,10 @@ export default function Home() {
         />
 
         {/* Product Overview / How it Works */}
-        <section className="py-24 bg-zinc-50 dark:bg-zinc-950/60 border-b border-zinc-200/80 dark:border-zinc-900 transition-colors">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <section className="py-24 bg-slate-50/70 dark:bg-[#0d0f17] border-b border-zinc-200/80 dark:border-[#232838] transition-colors relative overflow-hidden">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[300px] bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-[140px] pointer-events-none" />
+
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="text-center max-w-3xl mx-auto mb-16">
               <h2 className="text-3xl font-extrabold tracking-tight text-zinc-950 dark:text-white sm:text-4xl">
                 Engage audiences like never before
@@ -62,7 +64,7 @@ export default function Home() {
             </div>
 
             <div className="grid md:grid-cols-3 gap-8 text-center">
-              <div className="p-8 bg-white dark:bg-zinc-900/40 rounded-3xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-sm">
+              <div className="p-8 bg-white dark:bg-[#10121a] rounded-3xl border border-zinc-200/80 dark:border-[#232838] shadow-xs hover:border-zinc-300 dark:hover:border-zinc-700 transition-all">
                 <div className="w-12 h-12 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 rounded-2xl flex items-center justify-center mx-auto mb-5 text-lg font-black shadow-md">
                   1
                 </div>
@@ -74,7 +76,7 @@ export default function Home() {
                   Q&A sessions in seconds.
                 </p>
               </div>
-              <div className="p-8 bg-white dark:bg-zinc-900/40 rounded-3xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-sm">
+              <div className="p-8 bg-white dark:bg-[#10121a] rounded-3xl border border-zinc-200/80 dark:border-[#232838] shadow-xs hover:border-zinc-300 dark:hover:border-zinc-700 transition-all">
                 <div className="w-12 h-12 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 rounded-2xl flex items-center justify-center mx-auto mb-5 text-lg font-black shadow-md">
                   2
                 </div>
@@ -86,7 +88,7 @@ export default function Home() {
                   scan from any device without signing in.
                 </p>
               </div>
-              <div className="p-8 bg-white dark:bg-zinc-900/40 rounded-3xl border border-zinc-200/80 dark:border-zinc-800/80 shadow-sm">
+              <div className="p-8 bg-white dark:bg-[#10121a] rounded-3xl border border-zinc-200/80 dark:border-[#232838] shadow-xs hover:border-zinc-300 dark:hover:border-zinc-700 transition-all">
                 <div className="w-12 h-12 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 rounded-2xl flex items-center justify-center mx-auto mb-5 text-lg font-black shadow-md">
                   3
                 </div>
@@ -103,7 +105,7 @@ export default function Home() {
         </section>
 
         {/* Features Grid */}
-        <section className="py-24 bg-white dark:bg-black border-b border-zinc-200/80 dark:border-zinc-900 transition-colors">
+        <section className="py-24 bg-white dark:bg-[#090a0f] border-b border-zinc-200/80 dark:border-[#232838] transition-colors">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-2xl mx-auto mb-16">
               <h2 className="text-3xl font-extrabold tracking-tight text-zinc-950 dark:text-white sm:text-4xl">
@@ -116,32 +118,34 @@ export default function Home() {
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               <FeatureCard
-                icon={<BarChart3 className="w-6 h-6" />}
+                icon={
+                  <BarChart3 className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                }
                 title="Live Polling"
                 description="Create multiple-choice, word cloud, and open-ended polls that update instantly as your audience votes."
               />
               <FeatureCard
-                icon={<Zap className="w-6 h-6" />}
+                icon={<Zap className="w-6 h-6 text-amber-500" />}
                 title="AI-Generated Quizzes"
                 description="Turn any topic into an interactive quiz instantly with our AI assistant, saving hours of prep time."
               />
               <FeatureCard
-                icon={<LineChart className="w-6 h-6" />}
+                icon={<LineChart className="w-6 h-6 text-emerald-500" />}
                 title="Audience Analytics"
                 description="Track engagement levels, understand drop-off points, and measure comprehension in real-time."
               />
               <FeatureCard
-                icon={<MessageSquare className="w-6 h-6" />}
+                icon={<MessageSquare className="w-6 h-6 text-blue-500" />}
                 title="Interactive Q&A"
                 description="Let your audience ask questions anonymously, upvote the best ones, and address them during your presentation."
               />
               <FeatureCard
-                icon={<LayoutDashboard className="w-6 h-6" />}
+                icon={<LayoutDashboard className="w-6 h-6 text-purple-500" />}
                 title="Real-Time Dashboards"
                 description="Beautiful, responsive dashboards that present data clearly to both you and your audience."
               />
               <FeatureCard
-                icon={<Users className="w-6 h-6" />}
+                icon={<Users className="w-6 h-6 text-rose-500" />}
                 title="Role-Based Access"
                 description="Securely manage permissions for administrators, presenters, and participants across your organization."
               />
@@ -150,7 +154,7 @@ export default function Home() {
         </section>
 
         {/* Testimonials */}
-        <section className="py-24 bg-zinc-50 dark:bg-zinc-950/60 transition-colors">
+        <section className="py-24 bg-slate-50/70 dark:bg-[#0d0f17] transition-colors">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <h2 className="text-3xl font-extrabold tracking-tight text-zinc-950 dark:text-white sm:text-4xl text-center mb-16">
               Loved by presenters everywhere

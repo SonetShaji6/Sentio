@@ -51,10 +51,10 @@ export default function LoginPage() {
   return (
     <>
       <div className="mb-8">
-        <h2 className="text-[22px] font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
+        <h2 className="text-[22px] font-semibold tracking-tight text-slate-900 dark:text-white mb-2">
           Welcome back
         </h2>
-        <p className="text-[14px] text-gray-500">
+        <p className="text-[14px] text-slate-500 dark:text-slate-400">
           Sign in to your Sentio account to continue.
         </p>
       </div>
@@ -64,7 +64,10 @@ export default function LoginPage() {
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Email */}
         <div>
-          <label htmlFor="email" className="label">
+          <label
+            htmlFor="email"
+            className="label text-slate-900 dark:text-slate-200"
+          >
             Email Address
           </label>
           <input
@@ -83,12 +86,15 @@ export default function LoginPage() {
         {/* Password */}
         <div>
           <div className="flex items-center justify-between">
-            <label htmlFor="password" className="label">
+            <label
+              htmlFor="password"
+              className="label text-slate-900 dark:text-slate-200"
+            >
               Password
             </label>
             <Link
               href="/forgot-password"
-              className="text-[13px] font-medium text-blue-600 hover:underline"
+              className="text-[13px] font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
             >
               Forgot password?
             </Link>
@@ -116,11 +122,11 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <p className="mt-8 text-center text-[14px] text-gray-500">
+      <p className="mt-8 text-center text-[14px] text-slate-500 dark:text-slate-400">
         Don&apos;t have an account?{" "}
         <Link
           href="/register"
-          className="font-medium text-gray-900 hover:underline decoration-gray-300 underline-offset-4"
+          className="font-semibold text-slate-900 dark:text-white hover:underline decoration-slate-300 dark:decoration-slate-600 underline-offset-4"
         >
           Create one
         </Link>

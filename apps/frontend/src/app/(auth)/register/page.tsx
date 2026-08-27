@@ -99,10 +99,10 @@ export default function RegisterPage() {
   return (
     <>
       <div className="mb-8">
-        <h2 className="text-[22px] font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
+        <h2 className="text-[22px] font-semibold tracking-tight text-slate-900 dark:text-white mb-2">
           Create your account
         </h2>
-        <p className="text-[14px] text-gray-500">
+        <p className="text-[14px] text-slate-500 dark:text-slate-400">
           Start transforming your data into actionable intelligence.
         </p>
       </div>
@@ -112,7 +112,10 @@ export default function RegisterPage() {
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Full Name */}
         <div>
-          <label htmlFor="name" className="label">
+          <label
+            htmlFor="name"
+            className="label text-slate-900 dark:text-slate-200"
+          >
             Full Name
           </label>
           <input
@@ -133,7 +136,10 @@ export default function RegisterPage() {
 
         {/* Email */}
         <div>
-          <label htmlFor="email" className="label">
+          <label
+            htmlFor="email"
+            className="label text-slate-900 dark:text-slate-200"
+          >
             Email Address
           </label>
           <input
@@ -154,7 +160,10 @@ export default function RegisterPage() {
 
         {/* Password */}
         <div>
-          <label htmlFor="password" className="label">
+          <label
+            htmlFor="password"
+            className="label text-slate-900 dark:text-slate-200"
+          >
             Password
           </label>
           <input
@@ -175,7 +184,10 @@ export default function RegisterPage() {
 
         {/* Confirm Password */}
         <div>
-          <label htmlFor="confirmPassword" className="label">
+          <label
+            htmlFor="confirmPassword"
+            className="label text-slate-900 dark:text-slate-200"
+          >
             Confirm Password
           </label>
           <input
@@ -204,11 +216,11 @@ export default function RegisterPage() {
         </button>
       </form>
 
-      <p className="mt-8 text-center text-[14px] text-gray-500">
+      <p className="mt-8 text-center text-[14px] text-slate-500 dark:text-slate-400">
         Already have an account?{" "}
         <Link
           href="/login"
-          className="font-medium text-gray-900 hover:underline decoration-gray-300 underline-offset-4"
+          className="font-semibold text-slate-900 dark:text-white hover:underline decoration-slate-300 dark:decoration-slate-600 underline-offset-4"
         >
           Sign in
         </Link>

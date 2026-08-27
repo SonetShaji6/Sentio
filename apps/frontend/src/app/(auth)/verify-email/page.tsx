@@ -99,10 +99,10 @@ function VerifyEmailForm() {
   return (
     <>
       <div className="mb-8 text-center">
-        <h2 className="text-[22px] font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
+        <h2 className="text-[22px] font-semibold tracking-tight text-slate-900 dark:text-white mb-2">
           Email Verification
         </h2>
-        <p className="text-[14px] text-gray-500">
+        <p className="text-[14px] text-slate-500 dark:text-slate-400">
           Verify your email address to unlock your account and platform
           features.
         </p>
@@ -110,7 +110,7 @@ function VerifyEmailForm() {
 
       {status === "success" ? (
         <div className="text-center py-4 space-y-6">
-          <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 rounded-xl border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-3 text-left">
+          <div className="p-4 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 rounded-xl border border-emerald-500/20 flex items-center gap-3 text-left">
             <svg
               className="w-6 h-6 text-emerald-600 dark:text-emerald-400 flex-shrink-0"
               viewBox="0 0 24 24"
@@ -138,7 +138,10 @@ function VerifyEmailForm() {
           )}
 
           <div>
-            <label htmlFor="email" className="label">
+            <label
+              htmlFor="email"
+              className="label text-slate-900 dark:text-slate-200"
+            >
               Email Address
             </label>
             <input
@@ -155,7 +158,10 @@ function VerifyEmailForm() {
 
           {!token && (
             <div>
-              <label htmlFor="token" className="label">
+              <label
+                htmlFor="token"
+                className="label text-slate-900 dark:text-slate-200"
+              >
                 Verification Token
               </label>
               <input

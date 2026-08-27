@@ -84,23 +84,23 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="dashboard-shell flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
+    <div className="dashboard-shell flex h-screen overflow-hidden bg-slate-50/70 dark:bg-[#090a0f] text-slate-900 dark:text-slate-100 transition-colors">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="sidebar-overlay fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="sidebar-overlay fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`sidebar fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transform transition-transform duration-200 ease-in-out md:translate-x-0 md:static md:flex md:flex-col ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`sidebar fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-[#10121a] border-r border-slate-200 dark:border-[#232838] transform transition-transform duration-200 ease-in-out md:translate-x-0 md:static md:flex md:flex-col ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="sidebar-header flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+        <div className="sidebar-header flex items-center justify-between p-4 border-b border-slate-200 dark:border-[#232838]">
           <Logo imageClassName="h-8 w-8" className="sidebar-logo" />
           <button
-            className="sidebar-close md:hidden p-2 text-gray-500 hover:bg-gray-100 rounded-md"
+            className="sidebar-close md:hidden p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-[#171a24] rounded-md"
             onClick={() => setSidebarOpen(false)}
             aria-label="Close sidebar"
           >
@@ -111,7 +111,7 @@ export default function DashboardLayout({
         <nav className="sidebar-nav flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
           <Link
             href="/dashboard"
-            className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/dashboard") && !pathname.startsWith("/presentations") ? "bg-zinc-100 dark:bg-zinc-900 text-zinc-950 dark:text-white font-bold" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 hover:text-zinc-950 dark:hover:text-white font-medium"}`}
+            className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/dashboard") && !pathname.startsWith("/presentations") ? "bg-slate-100 dark:bg-[#171a24] text-slate-950 dark:text-white font-bold shadow-xs" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#171a24]/60 hover:text-slate-950 dark:hover:text-white font-medium"}`}
           >
             <svg
               width="18"
@@ -132,7 +132,7 @@ export default function DashboardLayout({
           </Link>
           <Link
             href="/presentations"
-            className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/presentations") ? "bg-zinc-100 dark:bg-zinc-900 text-zinc-950 dark:text-white font-bold" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 hover:text-zinc-950 dark:hover:text-white font-medium"}`}
+            className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/presentations") ? "bg-slate-100 dark:bg-[#171a24] text-slate-950 dark:text-white font-bold shadow-xs" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#171a24]/60 hover:text-slate-950 dark:hover:text-white font-medium"}`}
           >
             <svg
               width="18"
@@ -152,7 +152,7 @@ export default function DashboardLayout({
           </Link>
           <Link
             href="/files"
-            className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/files") ? "bg-zinc-100 dark:bg-zinc-900 text-zinc-950 dark:text-white font-bold" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 hover:text-zinc-950 dark:hover:text-white font-medium"}`}
+            className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/files") ? "bg-slate-100 dark:bg-[#171a24] text-slate-950 dark:text-white font-bold shadow-xs" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#171a24]/60 hover:text-slate-950 dark:hover:text-white font-medium"}`}
           >
             <svg
               width="18"
@@ -174,7 +174,7 @@ export default function DashboardLayout({
           </Link>
           <Link
             href="/organizations"
-            className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/organizations") ? "bg-zinc-100 dark:bg-zinc-900 text-zinc-950 dark:text-white font-bold" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 hover:text-zinc-950 dark:hover:text-white font-medium"}`}
+            className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/organizations") ? "bg-slate-100 dark:bg-[#171a24] text-slate-950 dark:text-white font-bold shadow-xs" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#171a24]/60 hover:text-slate-950 dark:hover:text-white font-medium"}`}
           >
             <svg
               width="18"
@@ -199,7 +199,7 @@ export default function DashboardLayout({
           {user?.role === "admin" && (
             <Link
               href="/admin"
-              className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/admin") ? "bg-zinc-100 dark:bg-zinc-900 text-zinc-950 dark:text-white font-bold" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 hover:text-zinc-950 dark:hover:text-white font-medium"}`}
+              className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/admin") ? "bg-slate-100 dark:bg-[#171a24] text-slate-950 dark:text-white font-bold shadow-xs" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#171a24]/60 hover:text-slate-950 dark:hover:text-white font-medium"}`}
             >
               <svg
                 width="18"
@@ -218,7 +218,7 @@ export default function DashboardLayout({
           )}
           <Link
             href="/settings"
-            className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/settings") ? "bg-zinc-100 dark:bg-zinc-900 text-zinc-950 dark:text-white font-bold" : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 hover:text-zinc-950 dark:hover:text-white font-medium"}`}
+            className={`nav-item flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors ${isActive("/settings") ? "bg-slate-100 dark:bg-[#171a24] text-slate-950 dark:text-white font-bold shadow-xs" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#171a24]/60 hover:text-slate-950 dark:hover:text-white font-medium"}`}
           >
             <svg
               width="18"
@@ -238,26 +238,33 @@ export default function DashboardLayout({
         </nav>
 
         {/* User info at bottom */}
-        <div className="sidebar-footer">
-          <div className="sidebar-user">
+        <div className="sidebar-footer p-4 border-t border-slate-200 dark:border-[#232838] flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-[#0c0e15]">
+          <div className="sidebar-user flex items-center gap-3 min-w-0">
             {user?.avatar ? (
               <img
                 src={user.avatar}
                 alt={user.name}
-                className="avatar"
-                style={{ objectFit: "cover" }}
+                className="avatar w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-[#262b3a]"
               />
             ) : (
-              <div className="avatar">{initials}</div>
+              <div className="avatar w-9 h-9 rounded-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 flex items-center justify-center text-xs font-bold shrink-0">
+                {initials}
+              </div>
             )}
-            <div className="sidebar-user-info">
-              <span className="sidebar-user-name">{user?.name}</span>
+            <div className="sidebar-user-info min-w-0">
+              <span className="sidebar-user-name text-xs font-bold text-slate-900 dark:text-white truncate block">
+                {user?.name}
+              </span>
               <span className={roleBadgeClass}>{user?.role}</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <ThemeToggle />
-            <button onClick={logout} className="btn-logout" title="Sign out">
+            <button
+              onClick={logout}
+              className="btn-logout p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
+              title="Sign out"
+            >
               <svg
                 width="18"
                 height="18"
@@ -280,10 +287,10 @@ export default function DashboardLayout({
       {/* Main content */}
       <main className="dashboard-main flex-1 flex flex-col h-screen overflow-hidden relative">
         {/* Mobile header */}
-        <header className="mobile-header flex items-center justify-between p-4 md:hidden border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
+        <header className="mobile-header flex items-center justify-between p-4 md:hidden border-b border-slate-200 dark:border-[#232838] bg-white dark:bg-[#10121a]">
           <div className="flex items-center gap-4">
             <button
-              className="hamburger"
+              className="hamburger p-1 text-slate-600 dark:text-slate-300"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open menu"
             >
@@ -308,11 +315,11 @@ export default function DashboardLayout({
         </header>
 
         {/* Desktop Top Header (hidden on mobile) */}
-        <header className="hidden md:flex items-center justify-end p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
+        <header className="hidden md:flex items-center justify-end p-4 border-b border-slate-200 dark:border-[#232838] bg-white/70 dark:bg-[#10121a]/70 backdrop-blur-md">
           <NotificationCenter />
         </header>
 
-        <div className="dashboard-content overflow-y-auto flex-1">
+        <div className="dashboard-content overflow-y-auto flex-1 bg-slate-50/50 dark:bg-[#090a0f]">
           {children}
         </div>
       </main>

@@ -24,7 +24,7 @@ export default function SettingsPage() {
 
   // Preferences state
   const [themePref, setThemePref] = useState<"light" | "dark" | "system">(
-    "system",
+    "light",
   );
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [pushNotifs, setPushNotifs] = useState(true);
@@ -165,7 +165,7 @@ export default function SettingsPage() {
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* PROFILE SECTION */}
         <div className="section-card">
-          <h2 className="text-lg font-semibold mb-4 text-gray-800">
+          <h2 className="text-lg font-bold mb-4 text-zinc-900 dark:text-zinc-100">
             Basic Information
           </h2>
 
@@ -315,8 +315,10 @@ export default function SettingsPage() {
 
         {/* SECURITY SECTION */}
         <div className="section-card">
-          <h2 className="text-lg font-semibold mb-4 text-gray-800">Security</h2>
-          <p className="text-sm text-gray-600 mb-6">
+          <h2 className="text-lg font-bold mb-2 text-zinc-900 dark:text-zinc-100">
+            Security
+          </h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-6">
             Leave these fields blank if you do not want to change your password.
           </p>
 

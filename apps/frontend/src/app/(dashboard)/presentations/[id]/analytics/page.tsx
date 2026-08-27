@@ -208,20 +208,22 @@ export default function AnalyticsDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white pb-12">
+    <div className="min-h-screen bg-slate-50/70 dark:bg-[#090a0f] text-slate-900 dark:text-white pb-12 transition-colors">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-10">
+      <div className="bg-white/80 dark:bg-[#10121a]/80 backdrop-blur-md border-b border-slate-200 dark:border-[#232838] sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link
               href={`/presentations/${presentationId}/edit`}
-              className="p-2 -ml-2 text-gray-500 hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              className="p-2 -ml-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-[#171a24] transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div>
-              <h1 className="text-xl font-bold">Analytics & Intelligence</h1>
-              <p className="text-sm text-gray-500">
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+                Analytics & Intelligence
+              </h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {overview?.presentationTitle || "Presentation"}
               </p>
             </div>
@@ -231,7 +233,7 @@ export default function AnalyticsDashboard() {
             <select
               value={selectedSessionId}
               onChange={(e) => setSelectedSessionId(e.target.value)}
-              className="px-4 py-2 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 bg-slate-100 dark:bg-[#171a24] border border-slate-200 dark:border-[#232838] rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white cursor-pointer"
             >
               {sessions.map((s) => (
                 <option key={s._id} value={s._id}>
@@ -243,7 +245,7 @@ export default function AnalyticsDashboard() {
 
             <button
               onClick={() => setIsReportModalOpen(true)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm transition-colors shadow-sm flex items-center gap-2"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl text-sm transition-colors shadow-sm flex items-center gap-2 cursor-pointer"
             >
               <Download className="w-4 h-4" /> Generate Report
             </button>
@@ -262,7 +264,7 @@ export default function AnalyticsDashboard() {
 
       {loading && !error ? (
         <div className="flex justify-center mt-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
         </div>
       ) : (
         overview && (
@@ -279,68 +281,82 @@ export default function AnalyticsDashboard() {
 
             {/* Top Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-                <div className="flex items-center gap-3 text-gray-500 mb-2">
+              <div className="bg-white dark:bg-[#10121a] p-6 rounded-3xl border border-slate-200 dark:border-[#232838] shadow-xs">
+                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-2">
                   <Activity className="w-5 h-5 text-blue-500" />
-                  <h3 className="font-medium">Engagement Score</h3>
+                  <h3 className="font-medium text-xs uppercase tracking-wider">
+                    Engagement Score
+                  </h3>
                 </div>
                 <div className="flex items-end gap-2">
-                  <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                  <span className="text-4xl font-bold text-slate-900 dark:text-white">
                     {engagement?.overall || 0}
                   </span>
-                  <span className="text-gray-500 mb-1">/ 100</span>
+                  <span className="text-slate-400 dark:text-slate-500 mb-1">
+                    / 100
+                  </span>
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-                <div className="flex items-center gap-3 text-gray-500 mb-2">
+              <div className="bg-white dark:bg-[#10121a] p-6 rounded-3xl border border-slate-200 dark:border-[#232838] shadow-xs">
+                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-2">
                   <Users className="w-5 h-5 text-emerald-500" />
-                  <h3 className="font-medium">Total Participants</h3>
+                  <h3 className="font-medium text-xs uppercase tracking-wider">
+                    Total Participants
+                  </h3>
                 </div>
                 <div className="flex items-end gap-2">
-                  <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                  <span className="text-4xl font-bold text-slate-900 dark:text-white">
                     {overview.totalParticipants}
                   </span>
                 </div>
-                <p className="text-sm text-gray-500 mt-2">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
                   {overview.activeParticipants} active (
                   {overview.participationRate}%)
                 </p>
               </div>
 
-              <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-                <div className="flex items-center gap-3 text-gray-500 mb-2">
+              <div className="bg-white dark:bg-[#10121a] p-6 rounded-3xl border border-slate-200 dark:border-[#232838] shadow-xs">
+                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-2">
                   <BarChart className="w-5 h-5 text-amber-500" />
-                  <h3 className="font-medium">Total Responses</h3>
+                  <h3 className="font-medium text-xs uppercase tracking-wider">
+                    Total Responses
+                  </h3>
                 </div>
                 <div className="flex items-end gap-2">
-                  <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                  <span className="text-4xl font-bold text-slate-900 dark:text-white">
                     {overview.totalResponses}
                   </span>
                 </div>
-                <p className="text-sm text-gray-500 mt-2">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
                   Across {overview.interactiveSlides} interactive slides
                 </p>
               </div>
 
-              <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-                <div className="flex items-center gap-3 text-gray-500 mb-2">
+              <div className="bg-white dark:bg-[#10121a] p-6 rounded-3xl border border-slate-200 dark:border-[#232838] shadow-xs">
+                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-2">
                   <Clock className="w-5 h-5 text-violet-500" />
-                  <h3 className="font-medium">Duration</h3>
+                  <h3 className="font-medium text-xs uppercase tracking-wider">
+                    Duration
+                  </h3>
                 </div>
                 <div className="flex items-end gap-2">
-                  <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                  <span className="text-4xl font-bold text-slate-900 dark:text-white">
                     {overview.durationMinutes}
                   </span>
-                  <span className="text-gray-500 mb-1">mins</span>
+                  <span className="text-slate-400 dark:text-slate-500 mb-1">
+                    mins
+                  </span>
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Timeline Chart */}
-              <div className="lg:col-span-2 bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-                <h3 className="text-lg font-bold mb-6">Session Timeline</h3>
+              <div className="lg:col-span-2 bg-white dark:bg-[#10121a] p-6 rounded-3xl border border-slate-200 dark:border-[#232838] shadow-xs">
+                <h3 className="text-lg font-bold mb-6 text-slate-900 dark:text-white">
+                  Session Timeline
+                </h3>
                 <div className="h-72 w-full">
                   {timeline.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
@@ -350,23 +366,23 @@ export default function AnalyticsDashboard() {
                       >
                         <CartesianGrid
                           strokeDasharray="3 3"
-                          stroke="#374151"
+                          stroke="#232838"
                           vertical={false}
                         />
-                        <XAxis dataKey="time" stroke="#6b7280" />
-                        <YAxis stroke="#6b7280" />
+                        <XAxis dataKey="time" stroke="#64748b" />
+                        <YAxis stroke="#64748b" />
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: "#111827",
-                            borderColor: "#374151",
+                            backgroundColor: "#10121a",
+                            borderColor: "#232838",
                             color: "#fff",
-                            borderRadius: "8px",
+                            borderRadius: "12px",
                           }}
                         />
                         <Line
                           type="monotone"
                           dataKey="responses"
-                          stroke="#3b82f6"
+                          stroke="#6366f1"
                           strokeWidth={3}
                           dot={{ r: 4 }}
                           activeDot={{ r: 6 }}
@@ -389,7 +405,7 @@ export default function AnalyticsDashboard() {
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="flex items-center justify-center h-full text-gray-500">
+                    <div className="flex items-center justify-center h-full text-slate-500 dark:text-slate-400 text-sm">
                       Not enough data points yet
                     </div>
                   )}
@@ -397,13 +413,15 @@ export default function AnalyticsDashboard() {
               </div>
 
               {/* Engagement Breakdown */}
-              <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-                <h3 className="text-lg font-bold mb-6">Engagement Factors</h3>
+              <div className="bg-white dark:bg-[#10121a] p-6 rounded-3xl border border-slate-200 dark:border-[#232838] shadow-xs">
+                <h3 className="text-lg font-bold mb-6 text-slate-900 dark:text-white">
+                  Engagement Factors
+                </h3>
                 <div className="space-y-4">
                   <EngagementBar
                     label="Participation Rate"
                     value={engagement?.participationRate || 0}
-                    color="bg-blue-500"
+                    color="bg-indigo-500"
                   />
                   <EngagementBar
                     label="Response Frequency"
@@ -436,38 +454,44 @@ export default function AnalyticsDashboard() {
 
             {/* Quiz Performance (if applicable) */}
             {quiz && quiz.totalQuizSlides > 0 && (
-              <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+              <div className="bg-white dark:bg-[#10121a] p-6 rounded-3xl border border-slate-200 dark:border-[#232838] shadow-xs">
                 <div className="flex items-center gap-3 mb-6">
                   <Award className="w-6 h-6 text-amber-500" />
-                  <h3 className="text-lg font-bold">Quiz Performance</h3>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                    Quiz Performance
+                  </h3>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                  <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                    <div className="text-sm text-gray-500 mb-1">
+                  <div className="p-4 bg-slate-50 dark:bg-[#171a24] border border-slate-200/60 dark:border-[#232838] rounded-2xl">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
                       Average Score
                     </div>
-                    <div className="text-2xl font-bold">
+                    <div className="text-2xl font-bold text-slate-900 dark:text-white">
                       {quiz.averageScore}
                     </div>
                   </div>
-                  <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                    <div className="text-sm text-gray-500 mb-1">
+                  <div className="p-4 bg-slate-50 dark:bg-[#171a24] border border-slate-200/60 dark:border-[#232838] rounded-2xl">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
                       Highest Score
                     </div>
-                    <div className="text-2xl font-bold">
+                    <div className="text-2xl font-bold text-slate-900 dark:text-white">
                       {quiz.highestScore}
                     </div>
                   </div>
-                  <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                    <div className="text-sm text-gray-500 mb-1">Accuracy</div>
+                  <div className="p-4 bg-slate-50 dark:bg-[#171a24] border border-slate-200/60 dark:border-[#232838] rounded-2xl">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+                      Accuracy
+                    </div>
                     <div className="text-2xl font-bold text-emerald-500">
                       {quiz.averageAccuracy}%
                     </div>
                   </div>
-                  <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                    <div className="text-sm text-gray-500 mb-1">Avg Time</div>
-                    <div className="text-2xl font-bold">
+                  <div className="p-4 bg-slate-50 dark:bg-[#171a24] border border-slate-200/60 dark:border-[#232838] rounded-2xl">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+                      Avg Time
+                    </div>
+                    <div className="text-2xl font-bold text-slate-900 dark:text-white">
                       {(quiz.averageResponseTimeMs / 1000).toFixed(1)}s
                     </div>
                   </div>
@@ -475,13 +499,13 @@ export default function AnalyticsDashboard() {
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
-                    <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-gray-800/50">
+                    <thead className="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-[#171a24]">
                       <tr>
-                        <th className="px-6 py-3 rounded-tl-lg">Question</th>
+                        <th className="px-6 py-3 rounded-tl-xl">Question</th>
                         <th className="px-6 py-3">Attempts</th>
                         <th className="px-6 py-3">Correct</th>
                         <th className="px-6 py-3">Accuracy</th>
-                        <th className="px-6 py-3 rounded-tr-lg">Difficulty</th>
+                        <th className="px-6 py-3 rounded-tr-xl">Difficulty</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -489,21 +513,23 @@ export default function AnalyticsDashboard() {
                         (q: any, i: number) => (
                           <tr
                             key={i}
-                            className="border-b border-gray-100 dark:border-gray-800 last:border-0"
+                            className="border-b border-slate-100 dark:border-[#232838] last:border-0"
                           >
-                            <td className="px-6 py-4 font-medium">
+                            <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">
                               {q.slideTitle}
                             </td>
-                            <td className="px-6 py-4">{q.totalAttempts}</td>
+                            <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
+                              {q.totalAttempts}
+                            </td>
                             <td className="px-6 py-4 text-emerald-500 font-medium">
                               {q.correctCount}
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
                               <div className="flex items-center gap-2">
                                 <span>{q.accuracy}%</span>
-                                <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full">
+                                <div className="w-16 h-1.5 bg-slate-200 dark:bg-[#232838] rounded-full">
                                   <div
-                                    className="h-full bg-blue-500 rounded-full"
+                                    className="h-full bg-indigo-500 rounded-full"
                                     style={{ width: `${q.accuracy}%` }}
                                   />
                                 </div>
@@ -511,15 +537,15 @@ export default function AnalyticsDashboard() {
                             </td>
                             <td className="px-6 py-4">
                               <span
-                                className={`px-2 py-1 rounded text-xs font-medium ${
+                                className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
                                   q.difficulty === "hard"
-                                    ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                                    ? "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60"
                                     : q.difficulty === "easy"
-                                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                      : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60"
+                                      : "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60"
                                 }`}
                               >
-                                {q.difficulty.toUpperCase()}
+                                {q.difficulty || "medium"}
                               </span>
                             </td>
                           </tr>
@@ -533,13 +559,13 @@ export default function AnalyticsDashboard() {
 
             {/* Slide Participation Chart */}
             {participation.length > 0 && (
-              <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+              <div className="bg-white dark:bg-[#10121a] p-6 rounded-3xl border border-slate-200 dark:border-[#232838] shadow-xs">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h3 className="text-lg font-bold">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                       Participation by Slide
                     </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       Response counts and interactions across each slide (
                       {participation.length} slides)
                     </p>

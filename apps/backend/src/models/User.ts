@@ -53,7 +53,7 @@ const UserSchema = new Schema<IUser>(
       theme: {
         type: String,
         enum: ["light", "dark", "system"],
-        default: "system",
+        default: "light",
       },
       notifications: {
         email: { type: Boolean, default: true },
