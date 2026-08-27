@@ -30,6 +30,7 @@ const SlideSchema = new Schema<ISlide>(
       type: String,
       enum: [
         "title",
+        "teaching",
         "information",
         "question",
         "poll",

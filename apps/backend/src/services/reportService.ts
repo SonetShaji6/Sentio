@@ -20,6 +20,7 @@ export async function generateReportData(sessionId: string, userId: string) {
   const quiz = await analyticsService.getQuizMetrics(sessionId);
   const engagement = await analyticsService.calculateEngagementScore(sessionId);
   const timeline = await analyticsService.getTimeline(sessionId);
+  const userWise = await analyticsService.getUserWiseInteractions(sessionId);
 
   let aiInsights = null;
   try {
@@ -51,6 +52,7 @@ export async function generateReportData(sessionId: string, userId: string) {
     quiz,
     engagement,
     timeline,
+    userWise,
     aiInsights,
     presenterName: presenter?.name || "Presenter",
     presenterEmail: presenter?.email || "",
@@ -61,7 +63,11 @@ export async function generateReportData(sessionId: string, userId: string) {
 export function buildPDFReport(reportData: any): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ margin: 50, size: "A4" });
+      const doc = new PDFDocument({
+        margin: 50,
+        size: "A4",
+        bufferPages: true,
+      });
       const buffers: Buffer[] = [];
 
       doc.on("data", (chunk: any) => buffers.push(chunk));
@@ -74,6 +80,11 @@ export function buildPDFReport(reportData: any): Promise<Buffer> {
       const lightBg = "#F9FAFB";
       const borderColor = "#E5E7EB";
       const accentColor = "#10B981";
+
+      const overview = reportData?.overview || {};
+      const engagement = reportData?.engagement || {};
+      const quiz = reportData?.quiz || {};
+      const aiInsights = reportData?.aiInsights || {};
 
       // ── Header ──
       doc.rect(0, 0, doc.page.width, 100).fill(primaryColor);
@@ -102,23 +113,19 @@ export function buildPDFReport(reportData: any): Promise<Buffer> {
         .fillColor(darkColor)
         .fontSize(16)
         .font("Helvetica-Bold")
-        .text(
-          reportData.overview.presentationTitle || "Presentation Report",
-          65,
-          metaY,
-        );
+        .text(overview.presentationTitle || "Presentation Report", 65, metaY);
 
       doc
         .fontSize(10)
         .font("Helvetica")
         .fillColor("#6B7280")
         .text(
-          `Presenter: ${reportData.presenterName} | Date: ${new Date().toLocaleDateString()} | Duration: ${reportData.overview.durationMinutes} mins`,
+          `Presenter: ${reportData?.presenterName || "Presenter"} | Date: ${new Date().toLocaleDateString()} | Duration: ${overview.durationMinutes || 0} mins`,
           65,
           metaY + 24,
         )
         .text(
-          `Session Status: ${reportData.overview.status?.toUpperCase() || "COMPLETED"} | Join Code: ${reportData.overview.sessionId}`,
+          `Session Status: ${(overview.status || "COMPLETED").toUpperCase()} | Session ID: ${overview.sessionId || "SENTIO"}`,
           65,
           metaY + 40,
         );
@@ -164,25 +171,25 @@ export function buildPDFReport(reportData: any): Promise<Buffer> {
       drawCard(
         50,
         "Engagement",
-        `${reportData.engagement.overall}/100`,
+        `${engagement.overall || 0}/100`,
         "Overall score",
       );
       drawCard(
         50 + cardWidth + 10,
         "Total Audience",
-        reportData.overview.totalParticipants,
-        `${reportData.overview.participationRate}% active`,
+        overview.totalParticipants || 0,
+        `${overview.participationRate || 0}% active`,
       );
       drawCard(
         50 + (cardWidth + 10) * 2,
         "Total Responses",
-        reportData.overview.totalResponses,
-        `${reportData.overview.interactiveSlides} interaction slides`,
+        overview.totalResponses || 0,
+        `${overview.interactiveSlides || 0} interaction slides`,
       );
       drawCard(
         50 + (cardWidth + 10) * 3,
         "Duration",
-        `${reportData.overview.durationMinutes}m`,
+        `${overview.durationMinutes || 0}m`,
         "Live session time",
       );
 
@@ -199,23 +206,23 @@ export function buildPDFReport(reportData: any): Promise<Buffer> {
       const factors = [
         {
           label: "Participation Rate",
-          value: `${reportData.engagement.participationRate}%`,
+          value: `${engagement.participationRate || 0}%`,
         },
         {
           label: "Response Frequency",
-          value: `${reportData.engagement.responseFrequency}%`,
+          value: `${engagement.responseFrequency || 0}%`,
         },
         {
           label: "Quiz Participation",
-          value: `${reportData.engagement.quizParticipation}%`,
+          value: `${engagement.quizParticipation || 0}%`,
         },
         {
           label: "Q&A Participation",
-          value: `${reportData.engagement.qnaParticipation}%`,
+          value: `${engagement.qnaParticipation || 0}%`,
         },
         {
           label: "Completion Rate",
-          value: `${reportData.engagement.completionRate}%`,
+          value: `${engagement.completionRate || 0}%`,
         },
       ];
 
@@ -349,22 +356,174 @@ export function buildPDFReport(reportData: any): Promise<Buffer> {
         );
       }
 
-      // Footer
-      const pageCount = doc.bufferedPageRange().count;
-      for (let i = 0; i < pageCount; i++) {
-        doc.switchToPage(i);
+      // ── Participant Details & User-Wise Breakdown Page ──
+      const userList = reportData.userWise || [];
+      if (userList.length > 0) {
+        doc.addPage();
+        doc.y = 50;
+
         doc
-          .fillColor("#9CA3AF")
-          .fontSize(8)
+          .fillColor(darkColor)
+          .fontSize(16)
+          .font("Helvetica-Bold")
           .text(
-            `Sentio Platform © ${new Date().getFullYear()} — Page ${i + 1} of ${pageCount}`,
+            "Participant Details & User-Wise Interaction Report",
             50,
-            doc.page.height - 35,
-            {
-              align: "center",
-              width: doc.page.width - 100,
-            },
+            doc.y,
           );
+        doc.moveDown(0.4);
+
+        doc
+          .fillColor("#6B7280")
+          .fontSize(9)
+          .font("Helvetica")
+          .text(
+            `Comprehensive interaction breakdown for all ${userList.length} connected attendee(s).`,
+            50,
+            doc.y,
+          );
+        doc.moveDown(0.8);
+
+        // Summary Table Header
+        const pTableY = doc.y;
+        doc
+          .rect(50, pTableY, doc.page.width - 100, 22)
+          .fillAndStroke(lightBg, borderColor);
+        doc.fillColor(darkColor).fontSize(8.5).font("Helvetica-Bold");
+        doc.text("Participant", 60, pTableY + 6);
+        doc.text("Questions", 210, pTableY + 6);
+        doc.text("Correct", 275, pTableY + 6);
+        doc.text("Accuracy", 335, pTableY + 6);
+        doc.text("Points", 395, pTableY + 6);
+        doc.text("Interactions", 445, pTableY + 6);
+        doc.text("Q&A", 505, pTableY + 6);
+
+        let pRowY = pTableY + 24;
+        userList.forEach((user: any, idx: number) => {
+          if (pRowY > doc.page.height - 80) {
+            doc.addPage();
+            pRowY = 50;
+          }
+
+          const isEven = idx % 2 === 0;
+          if (isEven) {
+            doc.rect(50, pRowY - 2, doc.page.width - 100, 18).fill("#F9FAFB");
+          }
+
+          doc.fillColor("#1F2937").fontSize(8.5).font("Helvetica");
+          doc.text(
+            user.displayName.length > 24
+              ? user.displayName.substring(0, 22) + "..."
+              : user.displayName,
+            60,
+            pRowY + 3,
+          );
+          doc.text(String(user.quizQuestionsAttempted || 0), 210, pRowY + 3);
+          doc.text(String(user.quizCorrectCount || 0), 275, pRowY + 3);
+          doc.text(`${user.quizAccuracy || 0}%`, 335, pRowY + 3);
+          doc.text(`${user.totalScore || 0}`, 395, pRowY + 3);
+          doc.text(String(user.totalInteractions || 0), 445, pRowY + 3);
+          doc.text(String(user.qnaQuestionsAsked || 0), 505, pRowY + 3);
+
+          pRowY += 20;
+        });
+
+        doc.y = pRowY + 15;
+
+        // Individual Question-by-Question User Activity
+        if (doc.y > doc.page.height - 150) {
+          doc.addPage();
+          doc.y = 50;
+        }
+
+        doc
+          .fillColor(darkColor)
+          .fontSize(13)
+          .font("Helvetica-Bold")
+          .text("Individual Response Logs", 50, doc.y);
+        doc.moveDown(0.5);
+
+        userList.slice(0, 12).forEach((user: any) => {
+          if (doc.y > doc.page.height - 120) {
+            doc.addPage();
+            doc.y = 50;
+          }
+
+          doc
+            .fillColor(primaryColor)
+            .fontSize(10)
+            .font("Helvetica-Bold")
+            .text(
+              `${user.displayName} — Total Score: ${user.totalScore} pts (${user.interactions.length} responses)`,
+              50,
+              doc.y,
+            );
+          doc.moveDown(0.3);
+
+          if (user.interactions.length === 0) {
+            doc
+              .fillColor("#9CA3AF")
+              .fontSize(8)
+              .font("Helvetica")
+              .text(
+                "No interaction responses recorded for this participant.",
+                65,
+                doc.y,
+              );
+            doc.moveDown(0.4);
+          } else {
+            user.interactions.forEach((item: any) => {
+              if (doc.y > doc.page.height - 50) {
+                doc.addPage();
+                doc.y = 50;
+              }
+
+              const resultIcon =
+                item.type === "quiz"
+                  ? item.isCorrect
+                    ? "[CORRECT]"
+                    : "[INCORRECT]"
+                  : `[${item.type.toUpperCase()}]`;
+
+              doc
+                .fillColor("#374151")
+                .fontSize(8)
+                .font("Helvetica")
+                .text(
+                  `• ${item.slideTitle}: ${item.responseSummary} ${resultIcon}${
+                    item.score ? ` (+${item.score} pts)` : ""
+                  }`,
+                  65,
+                  doc.y,
+                );
+              doc.moveDown(0.25);
+            });
+          }
+          doc.moveDown(0.5);
+        });
+      }
+
+      // Footer
+      try {
+        const pageRange = doc.bufferedPageRange();
+        const pageCount = pageRange?.count || 1;
+        for (let i = 0; i < pageCount; i++) {
+          doc.switchToPage(i);
+          doc
+            .fillColor("#9CA3AF")
+            .fontSize(8)
+            .text(
+              `Sentio Platform © ${new Date().getFullYear()} — Page ${i + 1} of ${pageCount}`,
+              50,
+              doc.page.height - 35,
+              {
+                align: "center",
+                width: doc.page.width - 100,
+              },
+            );
+        }
+      } catch (footerErr) {
+        console.warn("PDF footer rendering warning:", footerErr);
       }
 
       doc.end();
@@ -461,83 +620,135 @@ export async function generateAndSaveSessionReport(sessionId: string) {
     }
     if (!ownerId) return null;
 
+    // ── Deduplication / Idempotency Check ──
+    const existingReport = await Report.findOne({
+      sessionId: session._id,
+      status: "COMPLETED",
+      fileUrl: { $exists: true, $ne: "" },
+    }).sort({ createdAt: -1 });
+
+    if (existingReport) {
+      const existingFile = await FileResource.findOne({
+        storedName: { $regex: session.joinCode },
+      });
+      return { report: existingReport, fileResource: existingFile };
+    }
+
     const reportTitle = `Session Report - ${presentation?.title || "Presentation"} (${session.joinCode})`;
 
-    const report = new Report({
-      user: ownerId,
-      presentationId: presentation?._id || session.presentationId,
+    let report = await Report.findOne({
       sessionId: session._id,
-      title: reportTitle,
-      type: "full",
       status: "PROCESSING",
-      fileFormat: "pdf",
     });
-    await report.save();
 
-    const data = await generateReportData(
-      session._id.toString(),
-      ownerId.toString(),
-    );
-
-    const buffer = await buildPDFReport(data);
-    const fileName = `session-report-${session.joinCode}-${Date.now()}.pdf`;
-
-    const fileUrl = await uploadFileToAzure(
-      "reports",
-      fileName,
-      buffer,
-      "application/pdf",
-    );
-
-    report.fileUrl = fileUrl;
-    report.fileSize = buffer.length;
-    report.status = "COMPLETED";
-    await report.save();
-
-    // Save directly to Knowledge Base (FileResource)
-    let fileResource = null;
-    try {
-      fileResource = await FileResource.create({
-        originalName: `${reportTitle}.pdf`,
-        storedName: fileName,
-        mimeType: "application/pdf",
-        size: buffer.length,
-        owner: ownerId,
-        presentationId: presentation?._id,
-        category: "document",
-        storagePath: `reports/${fileName}`,
-        fileUrl: fileUrl,
-        status: "READY",
-        extractionStatus: "COMPLETED",
-        extractedText: `Sentio Intelligence Session Report for "${presentation?.title || "Presentation"}". Join Code: ${session.joinCode}. Total Attendees: ${session.participants?.length || 0}. Engagement: ${data.engagement?.score || 0}/100. Key Topics: ${(data.aiInsights?.topicDetection || []).join(", ")}.`,
-        extractedMetadata: {
-          slideCount: session.participants?.length || 0,
-          wordCount: 120,
-          keywords: [
-            "session-report",
-            "intelligence",
-            session.joinCode,
-            presentation?.title || "presentation",
-          ],
-        },
-        version: 1,
-        isLatestVersion: true,
+    if (!report) {
+      report = new Report({
+        user: ownerId,
+        presentationId: presentation?._id || session.presentationId,
+        sessionId: session._id,
+        title: reportTitle,
+        type: "full",
+        status: "PROCESSING",
+        fileFormat: "pdf",
       });
-    } catch (fileErr) {
-      console.warn("FileResource creation warning:", fileErr);
+      await report.save();
     }
 
-    if (data.presenterEmail) {
+    try {
+      const data = await generateReportData(
+        session._id.toString(),
+        ownerId.toString(),
+      );
+
+      const buffer = await buildPDFReport(data);
+      const fileName = `session-report-${session.joinCode}-${Date.now()}.pdf`;
+
+      const fileUrl = await uploadFileToAzure(
+        "reports",
+        fileName,
+        buffer,
+        "application/pdf",
+      );
+
+      report.fileUrl = fileUrl;
+      report.fileSize = buffer.length;
+      report.status = "COMPLETED";
+      report.error = undefined;
+      await report.save();
+
+      // ── Generate Comprehensive User-Wise Markdown for Knowledge Base ──
+      const userBreakdownText = (data.userWise || [])
+        .map(
+          (u: any) =>
+            `### Participant: ${u.displayName}\n- Total Score: ${u.totalScore} pts\n- Quiz Questions Attempted: ${u.quizQuestionsAttempted} (${u.quizCorrectCount} correct, ${u.quizAccuracy}% accuracy)\n- Total Interactions: ${u.totalInteractions} (Polls: ${u.pollsAnswered}, Words: ${u.wordCloudSubmissions}, Discussion: ${u.openTextResponses}, Ratings: ${u.ratingsGiven})\n- Responses: ${u.interactions.map((i: any) => `"${i.slideTitle}": ${i.responseSummary} [${i.isCorrect ? "Correct" : "Answered"}]`).join("; ")}`,
+        )
+        .join("\n\n");
+
+      const fullExtractedReport = `Sentio Intelligence Session Report for "${presentation?.title || "Presentation"}".
+Join Code: ${session.joinCode}
+Date: ${new Date().toLocaleDateString()}
+Total Attendees: ${session.participants?.length || 0}
+Active Participation Rate: ${data.overview?.participationRate || 0}%
+Overall Engagement Score: ${data.engagement?.overall || 0}/100
+Quiz Average Accuracy: ${data.quiz?.averageAccuracy || 0}%
+Top Topics: ${(data.aiInsights?.topicDetection || []).join(", ")}
+
+## User-Wise Participant Breakdown:
+${userBreakdownText || "No user interactions recorded."}`;
+
+      // Save directly to Knowledge Base (FileResource)
+      let fileResource = null;
       try {
-        await sendReportEmail(data.presenterEmail, report.title, fileUrl);
-      } catch (e) {
-        console.warn("Failed to send report email:", e);
+        fileResource = await FileResource.create({
+          originalName: `${reportTitle}.pdf`,
+          storedName: fileName,
+          mimeType: "application/pdf",
+          size: buffer.length,
+          owner: ownerId,
+          presentationId: presentation?._id,
+          category: "document",
+          storagePath: `reports/${fileName}`,
+          fileUrl: fileUrl,
+          status: "READY",
+          extractionStatus: "COMPLETED",
+          extractedText: fullExtractedReport,
+          extractedMetadata: {
+            slideCount: session.participants?.length || 0,
+            wordCount: fullExtractedReport.split(/\s+/).length,
+            participantCount: data.userWise?.length || 0,
+            keywords: [
+              "session-report",
+              "intelligence",
+              session.joinCode,
+              presentation?.title || "presentation",
+              ...(data.aiInsights?.topicDetection || []),
+            ],
+          },
+          version: 1,
+          isLatestVersion: true,
+        });
+      } catch (fileErr) {
+        console.warn("FileResource creation warning:", fileErr);
       }
-    }
 
-    return { report, fileResource };
+      if (data.presenterEmail) {
+        try {
+          await sendReportEmail(data.presenterEmail, report.title, fileUrl);
+        } catch (e) {
+          console.warn("Failed to send report email:", e);
+        }
+      }
+
+      return { report, fileResource };
+    } catch (innerError: any) {
+      console.error("Inner report generation error:", innerError);
+      report.status = "FAILED";
+      report.error = innerError.message || "Failed to compile report";
+      await report.save();
+      return { report, error: innerError.message };
+    }
   } catch (error) {
-    console.error("generateAndSaveSessionReport error:", error);
+    console.error("generateAndSaveSessionReport outer error:", error);
     return null;
   }
 }

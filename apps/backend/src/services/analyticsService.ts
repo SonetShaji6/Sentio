@@ -25,11 +25,12 @@ const INTERACTIVE_TYPES = [
 // ── Session Overview ──
 
 export async function getSessionOverview(sessionId: string): Promise<any> {
-  const session = await Session.findById(sessionId).populate("presentationId");
+  const session = await Session.findById(sessionId);
   if (!session) return null;
 
-  const presentation = await Presentation.findById(session.presentationId);
-  const slides = await Slide.find({ presentationId: session.presentationId });
+  const presId = (session.presentationId as any)?._id || session.presentationId;
+  const presentation = presId ? await Presentation.findById(presId) : null;
+  const slides = presId ? await Slide.find({ presentationId: presId }) : [];
   const interactiveSlides = slides.filter((s) =>
     INTERACTIVE_TYPES.includes(s.type),
   );
@@ -59,7 +60,7 @@ export async function getSessionOverview(sessionId: string): Promise<any> {
 
   return {
     sessionId,
-    presentationTitle: presentation?.title || "Unknown",
+    presentationTitle: presentation?.title || "Presentation",
     status: session.status,
     totalParticipants,
     activeParticipants,
@@ -67,7 +68,7 @@ export async function getSessionOverview(sessionId: string): Promise<any> {
     totalResponses,
     totalSlides: slides.length,
     interactiveSlides: interactiveSlides.length,
-    engagementScore: engagementData.overall,
+    engagementScore: engagementData?.overall || 0,
     startedAt: session.startedAt?.toISOString() || null,
     endedAt: session.endedAt?.toISOString() || null,
     durationMinutes,
@@ -82,9 +83,10 @@ export async function getParticipationMetrics(
   const session = await Session.findById(sessionId);
   if (!session) return [];
 
-  const slides = await Slide.find({
-    presentationId: session.presentationId,
-  }).sort({ order: 1 });
+  const presId = (session.presentationId as any)?._id || session.presentationId;
+  const slides = presId
+    ? await Slide.find({ presentationId: presId }).sort({ order: 1 })
+    : [];
 
   const totalParticipants = session.participants?.length || 0;
   const metrics = [];
@@ -118,10 +120,13 @@ export async function getQuizMetrics(sessionId: string): Promise<any> {
   const session = await Session.findById(sessionId);
   if (!session) return null;
 
-  const quizSlides = await Slide.find({
-    presentationId: session.presentationId,
-    type: "quiz",
-  });
+  const presId = (session.presentationId as any)?._id || session.presentationId;
+  const quizSlides = presId
+    ? await Slide.find({
+        presentationId: presId,
+        type: "quiz",
+      })
+    : [];
 
   if (quizSlides.length === 0) {
     return {
@@ -253,7 +258,8 @@ export async function calculateEngagementScore(
   }
 
   const totalParticipants = session.participants.length;
-  const slides = await Slide.find({ presentationId: session.presentationId });
+  const presId = (session.presentationId as any)?._id || session.presentationId;
+  const slides = presId ? await Slide.find({ presentationId: presId }) : [];
   const interactiveSlides = slides.filter((s) =>
     INTERACTIVE_TYPES.includes(s.type),
   );
@@ -501,4 +507,185 @@ export async function getExportData(
   }
 
   return csvRows.join("\n");
+}
+
+// ── User-Wise Interaction Analysis ──
+
+export interface UserWiseInteractionSummary {
+  participantId: string;
+  displayName: string;
+  totalScore: number;
+  totalInteractions: number;
+  quizQuestionsAttempted: number;
+  quizCorrectCount: number;
+  quizAccuracy: number;
+  avgResponseTimeMs: number;
+  pollsAnswered: number;
+  wordCloudSubmissions: number;
+  openTextResponses: number;
+  ratingsGiven: number;
+  qnaQuestionsAsked: number;
+  interactions: Array<{
+    slideId: string;
+    slideTitle: string;
+    type: string;
+    responseSummary: string;
+    isCorrect?: boolean;
+    score?: number;
+    responseTimeMs?: number;
+    createdAt: string;
+  }>;
+}
+
+export async function getUserWiseInteractions(
+  sessionId: string,
+): Promise<UserWiseInteractionSummary[]> {
+  const session = await Session.findById(sessionId);
+  if (!session) return [];
+
+  const presId = (session.presentationId as any)?._id || session.presentationId;
+  const slides = presId ? await Slide.find({ presentationId: presId }) : [];
+  const interactions = await Interaction.find({ sessionId }).sort({
+    createdAt: 1,
+  });
+  const qnaQuestions = await QnAQuestion.find({ sessionId });
+
+  const userMap = new Map<string, UserWiseInteractionSummary>();
+
+  // Initialize from session participants
+  (session.participants || []).forEach((p) => {
+    const key = p.displayName || p.socketId;
+    if (!userMap.has(key)) {
+      userMap.set(key, {
+        participantId: p.socketId,
+        displayName: p.displayName || "Participant",
+        totalScore: p.score || 0,
+        totalInteractions: 0,
+        quizQuestionsAttempted: 0,
+        quizCorrectCount: 0,
+        quizAccuracy: 0,
+        avgResponseTimeMs: 0,
+        pollsAnswered: 0,
+        wordCloudSubmissions: 0,
+        openTextResponses: 0,
+        ratingsGiven: 0,
+        qnaQuestionsAsked: 0,
+        interactions: [],
+      });
+    }
+  });
+
+  // Process all interactions
+  for (const i of interactions) {
+    const key = i.displayName || i.participantId;
+    if (!userMap.has(key)) {
+      userMap.set(key, {
+        participantId: i.participantId,
+        displayName: i.displayName || "Participant",
+        totalScore: 0,
+        totalInteractions: 0,
+        quizQuestionsAttempted: 0,
+        quizCorrectCount: 0,
+        quizAccuracy: 0,
+        avgResponseTimeMs: 0,
+        pollsAnswered: 0,
+        wordCloudSubmissions: 0,
+        openTextResponses: 0,
+        ratingsGiven: 0,
+        qnaQuestionsAsked: 0,
+        interactions: [],
+      });
+    }
+
+    const user = userMap.get(key)!;
+    user.totalInteractions += 1;
+
+    const slide = slides.find((s) => s._id.toString() === i.slideId.toString());
+    const slideTitle = slide?.title || "Slide";
+
+    let responseSummary = "";
+    if (
+      i.type === "quiz" ||
+      i.type === "poll" ||
+      (i.type as string) === "imagepoll"
+    ) {
+      const selectedIndices = i.payload?.selectedOptions || [];
+      const optionTexts = (slide?.config?.options || []).map((o: any) =>
+        typeof o === "object" ? o.text || "" : String(o),
+      );
+      const chosen = selectedIndices
+        .map((idx: number) => optionTexts[idx] || `Option ${idx + 1}`)
+        .join(", ");
+      responseSummary = chosen || "Selected Option";
+    } else if (i.type === "wordcloud") {
+      responseSummary = i.payload?.word || "Word submitted";
+    } else if (i.type === "opentext") {
+      responseSummary = i.payload?.text || "Response text";
+    } else if (i.type === "rating") {
+      responseSummary = `${i.payload?.rating || 0} / ${slide?.config?.ratingRange?.max || 5} Stars`;
+    }
+
+    if (i.type === "quiz") {
+      user.quizQuestionsAttempted += 1;
+      if (i.isCorrect) {
+        user.quizCorrectCount += 1;
+      }
+      if (i.score) {
+        user.totalScore += i.score;
+      }
+    } else if (i.type === "poll" || (i.type as string) === "imagepoll") {
+      user.pollsAnswered += 1;
+    } else if (i.type === "wordcloud") {
+      user.wordCloudSubmissions += 1;
+    } else if (i.type === "opentext") {
+      user.openTextResponses += 1;
+    } else if (i.type === "rating") {
+      user.ratingsGiven += 1;
+    }
+
+    user.interactions.push({
+      slideId: i.slideId.toString(),
+      slideTitle,
+      type: i.type,
+      responseSummary,
+      isCorrect: i.isCorrect,
+      score: i.score,
+      responseTimeMs: i.responseTimeMs,
+      createdAt: i.createdAt.toISOString(),
+    });
+  }
+
+  // Count Q&A per user
+  for (const q of qnaQuestions) {
+    const key = q.displayName;
+    if (userMap.has(key)) {
+      userMap.get(key)!.qnaQuestionsAsked += 1;
+    }
+  }
+
+  // Calculate final stats
+  const summaries: UserWiseInteractionSummary[] = [];
+  for (const user of userMap.values()) {
+    if (user.quizQuestionsAttempted > 0) {
+      user.quizAccuracy = Math.round(
+        (user.quizCorrectCount / user.quizQuestionsAttempted) * 100,
+      );
+      const quizItems = user.interactions.filter(
+        (i) => i.type === "quiz" && i.responseTimeMs,
+      );
+      const totalTime = quizItems.reduce(
+        (acc, item) => acc + (item.responseTimeMs || 0),
+        0,
+      );
+      user.avgResponseTimeMs =
+        quizItems.length > 0 ? Math.round(totalTime / quizItems.length) : 0;
+    }
+    summaries.push(user);
+  }
+
+  // Sort by highest score, then total interactions
+  return summaries.sort(
+    (a, b) =>
+      b.totalScore - a.totalScore || b.totalInteractions - a.totalInteractions,
+  );
 }

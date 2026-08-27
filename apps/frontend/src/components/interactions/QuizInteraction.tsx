@@ -16,6 +16,9 @@ interface QuizInteractionProps {
   timer?: number | null; // seconds
   hasSubmitted: boolean;
   responseLocked: boolean;
+  allAnswered?: boolean;
+  audienceCount?: number;
+  totalResponses?: number;
   onSubmit: (selectedOptions: number[], responseTimeMs: number) => void;
   feedback?: {
     isCorrect?: boolean;
@@ -41,6 +44,9 @@ export function QuizInteraction({
   timer,
   hasSubmitted,
   responseLocked,
+  allAnswered = false,
+  audienceCount = 0,
+  totalResponses = 0,
   onSubmit,
   feedback,
   revealedCorrectAnswers = [],
@@ -81,7 +87,16 @@ export function QuizInteraction({
   }, [timer, hasSubmitted, responseLocked, slideId]);
 
   const isTimedOut = Boolean(timer && timer > 0 && timeLeft <= 0);
-  const isFinished = hasSubmitted || isTimedOut || responseLocked;
+  const canShowResults =
+    isTimedOut ||
+    responseLocked ||
+    allAnswered ||
+    (totalResponses > 0 &&
+      audienceCount > 0 &&
+      totalResponses >= audienceCount);
+
+  const isFinished =
+    hasSubmitted || isTimedOut || responseLocked || canShowResults;
 
   // Auto-submit if time expires and user had selected an answer
   useEffect(() => {
@@ -93,7 +108,12 @@ export function QuizInteraction({
 
   // Determine correct answer indices
   const correctIndices: number[] =
-    feedback?.correctAnswers || revealedCorrectAnswers || [];
+    Array.isArray(revealedCorrectAnswers) && revealedCorrectAnswers.length > 0
+      ? revealedCorrectAnswers
+      : Array.isArray(feedback?.correctAnswers) &&
+          feedback.correctAnswers.length > 0
+        ? feedback.correctAnswers
+        : [];
 
   const handleSelect = (index: number) => {
     if (isFinished) return;
@@ -103,54 +123,45 @@ export function QuizInteraction({
   const handleSubmit = () => {
     if (selected === null || isFinished) return;
     const responseTimeMs = Math.max(0, Date.now() - startTimeRef.current);
-    if (timerRef.current) clearInterval(timerRef.current);
     onSubmit([selected], responseTimeMs);
   };
 
-  const timerPercent = timer ? (timeLeft / timer) * 100 : 100;
+  const timerPercent = timer && timer > 0 ? (timeLeft / timer) * 100 : 100;
 
   // Format correct answers label
   const correctLabels = correctIndices
-    .map((idx) => {
-      const char = String.fromCharCode(65 + idx);
-      const text = options[idx];
-      return text ? `${char} (${text})` : char;
-    })
+    .map((i) => options[i] || `Option ${i + 1}`)
     .join(", ");
 
   return (
     <div className="w-full space-y-4">
-      {/* Active Timer Bar */}
-      {timer &&
-        timer > 0 &&
-        !hasSubmitted &&
-        !responseLocked &&
-        timeLeft > 0 && (
-          <div className="flex items-center gap-3 mb-2 bg-zinc-100 dark:bg-zinc-800/80 px-4 py-2.5 rounded-2xl border border-zinc-200 dark:border-zinc-700/60">
-            <Clock
-              className={`w-5 h-5 ${
-                timeLeft <= 5 ? "text-red-500 animate-pulse" : "text-blue-500"
+      {/* Timer Bar */}
+      {timer && timer > 0 && !responseLocked && !canShowResults && (
+        <div className="flex items-center gap-3 p-3.5 bg-zinc-100 dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700">
+          <Clock
+            className={`w-5 h-5 ${
+              timeLeft <= 5 ? "text-red-500 animate-pulse" : "text-blue-500"
+            }`}
+          />
+          <div className="flex-1 h-2.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-1000 ${
+                timeLeft <= 5 ? "bg-red-500" : "bg-blue-500"
               }`}
+              style={{ width: `${timerPercent}%` }}
             />
-            <div className="flex-1 h-2.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-1000 ${
-                  timeLeft <= 5 ? "bg-red-500" : "bg-blue-500"
-                }`}
-                style={{ width: `${timerPercent}%` }}
-              />
-            </div>
-            <span
-              className={`text-lg font-black min-w-[2.5ch] text-right ${
-                timeLeft <= 5
-                  ? "text-red-500"
-                  : "text-zinc-700 dark:text-zinc-200"
-              }`}
-            >
-              {timeLeft}s
-            </span>
           </div>
-        )}
+          <span
+            className={`text-lg font-black min-w-[2.5ch] text-right ${
+              timeLeft <= 5
+                ? "text-red-500"
+                : "text-zinc-700 dark:text-zinc-200"
+            }`}
+          >
+            {timeLeft}s
+          </span>
+        </div>
+      )}
 
       {/* Options Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -163,7 +174,7 @@ export function QuizInteraction({
           let borderRing = "";
           let iconBadge = null;
 
-          if (isFinished && correctIndices.length > 0) {
+          if (canShowResults && correctIndices.length > 0) {
             if (isThisCorrect) {
               optionStyle =
                 "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20";
@@ -219,42 +230,79 @@ export function QuizInteraction({
         <button
           onClick={handleSubmit}
           disabled={selected === null}
-          className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-zinc-400 disabled:to-zinc-500 disabled:cursor-not-allowed text-white font-bold text-lg rounded-2xl shadow-md hover:shadow-lg transition-all active:scale-[0.99]"
+          className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-zinc-400 disabled:to-zinc-500 disabled:cursor-not-allowed text-white font-bold text-lg rounded-2xl shadow-md hover:shadow-lg transition-all active:scale-[0.99] cursor-pointer"
         >
           {selected === null ? "Select an Answer Above" : "Submit Answer"}
         </button>
       )}
 
-      {/* Result / Feedback Card */}
-      {hasSubmitted && feedback && (
+      {/* Waiting for everyone to answer / timer to end */}
+      {hasSubmitted && !canShowResults && (
+        <div className="p-6 rounded-3xl text-center bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm animate-fade-in space-y-3">
+          <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex items-center justify-center mx-auto">
+            <Check className="w-7 h-7 stroke-[3]" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-lg font-bold text-zinc-950 dark:text-white">
+              Answer Submitted!
+            </h3>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto leading-relaxed">
+              Results and correct answers will be revealed once all participants
+              have answered or the timer concludes.
+            </p>
+          </div>
+
+          {audienceCount && audienceCount > 0 ? (
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-xs font-mono font-bold text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>
+                {totalResponses || 1} / {audienceCount} Answered
+              </span>
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* Result / Feedback Card (Only shown when canShowResults is true) */}
+      {canShowResults && (
         <div
-          className={`p-6 rounded-3xl text-center border transition-all ${
-            feedback.isCorrect
+          className={`p-6 rounded-3xl text-center border transition-all animate-fade-in ${
+            feedback?.isCorrect
               ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-100"
-              : "bg-rose-500/10 border-rose-500/30 text-rose-950 dark:text-rose-100"
+              : feedback
+                ? "bg-rose-500/10 border-rose-500/30 text-rose-950 dark:text-rose-100"
+                : "bg-zinc-100 dark:bg-zinc-850 border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
           }`}
         >
           <div className="flex justify-center mb-3">
-            {feedback.isCorrect ? (
+            {feedback?.isCorrect ? (
               <div className="w-16 h-16 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
                 <Check className="w-9 h-9 text-white stroke-[3]" />
               </div>
-            ) : (
+            ) : feedback ? (
               <div className="w-16 h-16 rounded-2xl bg-rose-500 flex items-center justify-center shadow-lg shadow-rose-500/30">
                 <X className="w-9 h-9 text-white stroke-[3]" />
+              </div>
+            ) : (
+              <div className="w-16 h-16 rounded-2xl bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-zinc-600 dark:text-zinc-300">
+                <CheckCircle2 className="w-9 h-9 text-emerald-500" />
               </div>
             )}
           </div>
           <h3
             className={`text-2xl font-black ${
-              feedback.isCorrect
+              feedback?.isCorrect
                 ? "text-emerald-600 dark:text-emerald-400"
-                : "text-rose-600 dark:text-rose-400"
+                : feedback
+                  ? "text-rose-600 dark:text-rose-400"
+                  : "text-zinc-950 dark:text-white"
             }`}
           >
-            {feedback.isCorrect
+            {feedback?.isCorrect
               ? "Brilliant! That's Correct!"
-              : "Oops! Incorrect"}
+              : feedback
+                ? "Oops! Incorrect"
+                : "Question Concluded"}
           </h3>
 
           {correctLabels && (
@@ -266,7 +314,7 @@ export function QuizInteraction({
             </p>
           )}
 
-          {typeof feedback.scoreAwarded === "number" &&
+          {typeof feedback?.scoreAwarded === "number" &&
             feedback.scoreAwarded > 0 && (
               <div className="inline-flex items-center justify-center gap-2 mt-3 px-4 py-1.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30">
                 <Trophy className="w-5 h-5 text-amber-500" />
@@ -279,7 +327,7 @@ export function QuizInteraction({
       )}
 
       {/* Timeout / Response Locked (without submission) */}
-      {!hasSubmitted && (isTimedOut || responseLocked) && (
+      {!hasSubmitted && (isTimedOut || responseLocked) && !canShowResults && (
         <div className="p-6 rounded-3xl text-center bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700">
           <div className="flex justify-center mb-2">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-500">

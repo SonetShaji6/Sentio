@@ -41,10 +41,12 @@ import {
   CheckCircle,
   MoreVertical,
   Layers,
+  BookOpen,
 } from "lucide-react";
 
 const typeIcons: Record<string, React.ReactNode> = {
   title: <Type className="w-3.5 h-3.5" />,
+  teaching: <BookOpen className="w-3.5 h-3.5" />,
   information: <AlignLeft className="w-3.5 h-3.5" />,
   question: <HelpCircle className="w-3.5 h-3.5" />,
   poll: <BarChart2 className="w-3.5 h-3.5" />,

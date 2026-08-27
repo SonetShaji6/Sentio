@@ -1,5 +1,6 @@
 export type SlideType =
   | "title"
+  | "teaching"
   | "information"
   | "question"
   | "poll"
@@ -15,8 +16,12 @@ export interface SlideConfig {
   options?: any[];
   correctAnswers?: any[];
   points?: number;
+  paragraph?: string;
+  content?: string;
   bulletPoints?: string[];
   kicker?: string;
+  takeaway?: string;
+  callout?: string;
   author?: string;
   authorRole?: string;
   lowLabel?: string;

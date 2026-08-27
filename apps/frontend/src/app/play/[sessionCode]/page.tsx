@@ -30,6 +30,7 @@ import { OpenTextInteraction } from "@/components/interactions/OpenTextInteracti
 import { RatingInteraction } from "@/components/interactions/RatingInteraction";
 import { EmojiReactions } from "@/components/interactions/EmojiReactions";
 import { QnAPanel } from "@/components/interactions/QnAPanel";
+import { resolveTheme } from "@/types/theme";
 
 interface SlideData {
   slideId: string;
@@ -38,8 +39,23 @@ interface SlideData {
   description: string;
   content?: string;
   config: any;
+  theme?: any;
   responseLocked: boolean;
 }
+
+const getFontFamilyStyle = (font?: string) => {
+  switch (font) {
+    case "serif":
+      return "Georgia, Cambria, 'Times New Roman', Times, serif";
+    case "mono":
+      return "'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace";
+    case "display":
+      return "'Outfit', 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif";
+    case "sans":
+    default:
+      return "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  }
+};
 
 interface QnAQuestion {
   id: string;
@@ -67,7 +83,7 @@ export default function AudienceView() {
   const displayName = searchParams.get("name") || "Participant";
 
   const [connectionState, setConnectionState] = useState<
-    "connecting" | "joined" | "error"
+    "connecting" | "pending_approval" | "joined" | "error"
   >("connecting");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -78,6 +94,7 @@ export default function AudienceView() {
 
   // Results state
   const [pollResults, setPollResults] = useState<any>(null);
+  const [quizResults, setQuizResults] = useState<any>(null);
   const [quizFeedback, setQuizFeedback] = useState<any>(null);
   const [revealedCorrectAnswers, setRevealedCorrectAnswers] = useState<
     number[]
@@ -85,6 +102,7 @@ export default function AudienceView() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [wordCloudResults, setWordCloudResults] = useState<any>(null);
   const [ratingResults, setRatingResults] = useState<any>(null);
+  const [audienceCount, setAudienceCount] = useState<number>(0);
   const [reactionCounts, setReactionCounts] = useState<Record<string, number>>(
     {},
   );
@@ -97,6 +115,11 @@ export default function AudienceView() {
   const [qnaQuestions, setQnaQuestions] = useState<QnAQuestion[]>([]);
 
   const { isConnected, emit, subscribe } = useSocket();
+
+  // Resolve dynamic active theme from current slide or session
+  const activeTheme = resolveTheme(
+    currentSlide?.theme || currentSlide?.config?.theme || session?.theme,
+  );
 
   // Track submitted slides
   const submittedSlidesRef = useRef<Set<string>>(new Set());
@@ -126,9 +149,49 @@ export default function AudienceView() {
     );
 
     unsubs.push(
+      subscribe(SOCKET_EVENTS.ADMISSION_PENDING, (data: any) => {
+        if (data?.session) setSession(data.session);
+        setConnectionState("pending_approval");
+      }),
+    );
+
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.ADMISSION_APPROVED, (data: any) => {
+        if (data?.session) setSession(data.session);
+        setConnectionState("joined");
+      }),
+    );
+
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.ADMISSION_REJECTED, (data: any) => {
+        setErrorMessage(
+          data?.message ||
+            "Your request to join this session was declined by the presenter.",
+        );
+        setConnectionState("error");
+      }),
+    );
+
+    unsubs.push(
       subscribe(SOCKET_EVENTS.JOIN_ERROR, (msg: string) => {
         setErrorMessage(msg);
         setConnectionState("error");
+      }),
+    );
+
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.PARTICIPANT_KICKED, (data: any) => {
+        setConnectionState("error");
+        setErrorMessage(
+          data?.message ||
+            "You have been removed from this session by the presenter and cannot rejoin.",
+        );
+      }),
+    );
+
+    unsubs.push(
+      subscribe(SOCKET_EVENTS.AUDIENCE_UPDATED, (data: { count: number }) => {
+        setAudienceCount(data.count);
       }),
     );
 
@@ -151,6 +214,7 @@ export default function AudienceView() {
         setResponseLocked(Boolean(data.responseLocked));
         setHasSubmitted(submittedSlidesRef.current.has(data.slideId));
         setPollResults(null);
+        setQuizResults(null);
         setQuizFeedback(null);
         setRevealedCorrectAnswers([]);
         setWordCloudResults(null);
@@ -192,7 +256,11 @@ export default function AudienceView() {
 
     unsubs.push(
       subscribe(SOCKET_EVENTS.QUIZ_UPDATE, (data: any) => {
-        if (data.correctAnswers) {
+        setQuizResults(data);
+        if (
+          Array.isArray(data.correctAnswers) &&
+          data.correctAnswers.length > 0
+        ) {
           setRevealedCorrectAnswers(data.correctAnswers);
         }
       }),
@@ -200,13 +268,19 @@ export default function AudienceView() {
 
     unsubs.push(
       subscribe(SOCKET_EVENTS.INTERACTION_RESULT, (data: any) => {
-        if (data.type === "quiz" && typeof data.isCorrect === "boolean") {
+        if (data.type === "quiz") {
           setQuizFeedback({
             isCorrect: data.isCorrect,
             scoreAwarded: data.scoreAwarded ?? 0,
             correctAnswers: data.correctAnswers ?? [],
             selectedOptions: data.selectedOptions ?? [],
           });
+          if (
+            Array.isArray(data.correctAnswers) &&
+            data.correctAnswers.length > 0
+          ) {
+            setRevealedCorrectAnswers(data.correctAnswers);
+          }
         }
       }),
     );
@@ -252,8 +326,11 @@ export default function AudienceView() {
     // Reactions
     unsubs.push(
       subscribe(SOCKET_EVENTS.REACTION_UPDATE, (data: any) => {
-        if (data.slideId === currentSlide?.slideId) {
+        if (!currentSlide || data.slideId === currentSlide?.slideId) {
           setReactionCounts(data.counts || {});
+        }
+        if (data.emoji) {
+          spawnFloatingEmoji(data.emoji);
         }
       }),
     );
@@ -263,7 +340,7 @@ export default function AudienceView() {
       subscribe(SOCKET_EVENTS.QNA_UPDATE, (data: any) => {
         if (data.action === "new") {
           setQnaQuestions((prev) => [data.question, ...prev]);
-        } else if (data.action === "moderated") {
+        } else if (data.action === "moderated" || data.action === "replied") {
           setQnaQuestions((prev) =>
             prev.map((q) => (q.id === data.question.id ? data.question : q)),
           );
@@ -335,6 +412,130 @@ export default function AudienceView() {
           Connecting to Session...
         </h2>
         <p className="text-xs text-zinc-400 mt-1 font-mono">Room #{joinCode}</p>
+      </div>
+    );
+  }
+
+  // ── Render State 1.5: Pending Presenter Approval ──
+  if (connectionState === "pending_approval") {
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center justify-center p-6 animate-fade-in transition-colors duration-300"
+        style={{
+          backgroundColor: activeTheme.bg,
+          color: activeTheme.text,
+          fontFamily: getFontFamilyStyle(activeTheme.fontFamily),
+        }}
+      >
+        <div
+          className="max-w-md w-full border rounded-3xl p-8 sm:p-10 text-center shadow-xl space-y-5"
+          style={{
+            backgroundColor: activeTheme.cardBg,
+            borderColor: activeTheme.border,
+          }}
+        >
+          {/* Animated Pending Icon */}
+          <div className="relative inline-block mx-auto">
+            <div
+              className="w-20 h-20 rounded-3xl flex items-center justify-center shadow-md animate-pulse"
+              style={{
+                backgroundColor: `${activeTheme.primary}15`,
+                color: activeTheme.primary,
+                border: `1px solid ${activeTheme.primary}30`,
+              }}
+            >
+              <Clock className="w-10 h-10" />
+            </div>
+            <span
+              className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-[10px] text-white animate-bounce shadow-xs"
+              style={{ backgroundColor: activeTheme.primary }}
+            >
+              ⏳
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            <div
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider"
+              style={{
+                backgroundColor: `${activeTheme.primary}15`,
+                color: activeTheme.primary,
+                border: `1px solid ${activeTheme.primary}30`,
+              }}
+            >
+              <span
+                className="w-2 h-2 rounded-full animate-ping"
+                style={{ backgroundColor: activeTheme.primary }}
+              />
+              Awaiting Admission
+            </div>
+
+            <h2
+              className="text-2xl font-black tracking-tight"
+              style={{ color: activeTheme.text }}
+            >
+              Waiting for Presenter Approval
+            </h2>
+
+            <p
+              className="text-xs sm:text-sm max-w-xs mx-auto leading-relaxed"
+              style={{ color: activeTheme.textMuted }}
+            >
+              Hi{" "}
+              <strong style={{ color: activeTheme.text }}>{displayName}</strong>
+              , your request to join room{" "}
+              <strong style={{ color: activeTheme.text }}>#{joinCode}</strong>{" "}
+              was sent. The host will admit you shortly.
+            </p>
+          </div>
+
+          {/* Pulsing visual indicator */}
+          <div
+            className="p-4 rounded-2xl border space-y-2 text-left"
+            style={{
+              backgroundColor: activeTheme.bg,
+              borderColor: activeTheme.border,
+            }}
+          >
+            <div
+              className="flex items-center justify-between text-xs font-medium"
+              style={{ color: activeTheme.textMuted }}
+            >
+              <span className="flex items-center gap-1.5">
+                <Radio
+                  className="w-3.5 h-3.5 animate-pulse"
+                  style={{ color: activeTheme.primary }}
+                />
+                Admission Lobby
+              </span>
+              <span className="font-mono text-[11px]">Knocking...</span>
+            </div>
+            <div
+              className="h-1.5 w-full rounded-full overflow-hidden"
+              style={{ backgroundColor: activeTheme.border }}
+            >
+              <div
+                className="h-full rounded-full animate-pulse w-3/4"
+                style={{ backgroundColor: activeTheme.primary }}
+              />
+            </div>
+          </div>
+
+          <p
+            className="text-[11px] font-medium"
+            style={{ color: activeTheme.textMuted }}
+          >
+            Keep this screen open — you will enter automatically once approved.
+          </p>
+
+          <button
+            onClick={() => router.push("/join")}
+            className="text-xs font-bold hover:underline cursor-pointer block mx-auto pt-2"
+            style={{ color: activeTheme.textMuted }}
+          >
+            Cancel &amp; Leave
+          </button>
+        </div>
       </div>
     );
   }
@@ -414,7 +615,14 @@ export default function AudienceView() {
   // ── Render State 5: Welcome Lobby Screen (Waiting for Presenter to Start) ──
   if (!currentSlide) {
     return (
-      <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col justify-between p-6 md:p-10 animate-fade-in selection:bg-zinc-900 selection:text-white">
+      <div
+        className="min-h-screen flex flex-col justify-between p-6 md:p-10 animate-fade-in transition-colors duration-300"
+        style={{
+          backgroundColor: activeTheme.bg,
+          color: activeTheme.text,
+          fontFamily: getFontFamilyStyle(activeTheme.fontFamily),
+        }}
+      >
         {/* Floating live reaction overlay */}
         <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
           {floatingEmojis.map((item) => (
@@ -431,12 +639,25 @@ export default function AudienceView() {
         {/* Top Minimal Bar */}
         <header className="flex items-center justify-between max-w-xl mx-auto w-full">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-            <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+            <span
+              className="w-2.5 h-2.5 rounded-full animate-ping"
+              style={{ backgroundColor: activeTheme.primary }}
+            />
+            <span
+              className="text-xs font-mono font-bold uppercase tracking-wider"
+              style={{ color: activeTheme.primary }}
+            >
               Connected
             </span>
           </div>
-          <span className="px-3 py-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full text-xs font-mono font-bold text-zinc-700 dark:text-zinc-300">
+          <span
+            className="px-3 py-1 border rounded-full text-xs font-mono font-bold transition-colors"
+            style={{
+              backgroundColor: activeTheme.cardBg,
+              borderColor: activeTheme.border,
+              color: activeTheme.primary,
+            }}
+          >
             #{joinCode}
           </span>
         </header>
@@ -445,41 +666,80 @@ export default function AudienceView() {
         <main className="max-w-md w-full mx-auto text-center space-y-6 my-auto py-8">
           {/* Avatar with initial */}
           <div className="relative inline-block">
-            <div className="w-20 h-20 rounded-3xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 flex items-center justify-center font-black text-2xl shadow-xl mx-auto">
+            <div
+              className="w-20 h-20 rounded-3xl flex items-center justify-center font-black text-2xl shadow-xl mx-auto transition-transform"
+              style={{
+                backgroundColor: activeTheme.primary,
+                color: "#FFFFFF",
+              }}
+            >
               {displayName.charAt(0).toUpperCase()}
             </div>
-            <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-950 flex items-center justify-center text-[10px] text-white">
+            <span
+              className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-[10px] text-white border-2"
+              style={{
+                backgroundColor: activeTheme.accent,
+                borderColor: activeTheme.bg,
+              }}
+            >
               ✓
             </span>
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-2xl sm:text-3xl font-black text-zinc-950 dark:text-white tracking-tight">
+            <h1
+              className="text-2xl sm:text-3xl font-black tracking-tight"
+              style={{ color: activeTheme.text }}
+            >
               You&apos;re in, {displayName}!
             </h1>
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto leading-relaxed">
+            <p
+              className="text-xs sm:text-sm max-w-xs mx-auto leading-relaxed"
+              style={{ color: activeTheme.textMuted }}
+            >
               Waiting for the presenter to launch the first slide. Keep this
               screen open.
             </p>
           </div>
 
           {/* Animated Waiting Progress Bar */}
-          <div className="p-4 bg-zinc-50 dark:bg-zinc-900/70 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl space-y-3">
-            <div className="flex items-center justify-between text-xs text-zinc-400 font-medium">
+          <div
+            className="p-4 border rounded-2xl space-y-3 transition-colors"
+            style={{
+              backgroundColor: activeTheme.cardBg,
+              borderColor: activeTheme.border,
+            }}
+          >
+            <div
+              className="flex items-center justify-between text-xs font-medium"
+              style={{ color: activeTheme.textMuted }}
+            >
               <span className="flex items-center gap-1.5">
-                <Radio className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />{" "}
+                <Radio
+                  className="w-3.5 h-3.5 animate-pulse"
+                  style={{ color: activeTheme.primary }}
+                />{" "}
                 Live Room
               </span>
               <span className="font-mono">Ready to broadcast</span>
             </div>
-            <div className="h-1.5 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-              <div className="h-full bg-zinc-950 dark:bg-white rounded-full animate-pulse w-2/3" />
+            <div
+              className="h-1.5 w-full rounded-full overflow-hidden"
+              style={{ backgroundColor: `${activeTheme.border}` }}
+            >
+              <div
+                className="h-full rounded-full animate-pulse w-2/3"
+                style={{ backgroundColor: activeTheme.primary }}
+              />
             </div>
           </div>
 
           {/* Interactive Reaction Warmup Zone */}
           <div className="space-y-2 pt-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">
+            <span
+              className="text-[11px] font-bold uppercase tracking-wider block"
+              style={{ color: activeTheme.textMuted }}
+            >
               Test your reactions while waiting
             </span>
             <div className="flex justify-center gap-2">
@@ -487,7 +747,11 @@ export default function AudienceView() {
                 <button
                   key={emoji}
                   onClick={() => handleReaction(emoji)}
-                  className="w-11 h-11 rounded-2xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-xl flex items-center justify-center border border-zinc-200 dark:border-zinc-800 transition-all hover:scale-110 active-press cursor-pointer"
+                  className="w-11 h-11 rounded-2xl text-xl flex items-center justify-center border transition-all hover:scale-110 active-press cursor-pointer"
+                  style={{
+                    backgroundColor: activeTheme.cardBg,
+                    borderColor: activeTheme.border,
+                  }}
                 >
                   {emoji}
                 </button>
@@ -500,9 +764,17 @@ export default function AudienceView() {
         <footer className="max-w-xl mx-auto w-full pt-4 text-center">
           <button
             onClick={() => setShowQnA(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 transition-all active-press cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border transition-all active-press cursor-pointer"
+            style={{
+              backgroundColor: activeTheme.cardBg,
+              borderColor: activeTheme.border,
+              color: activeTheme.text,
+            }}
           >
-            <MessageCircle className="w-4 h-4" />
+            <MessageCircle
+              className="w-4 h-4"
+              style={{ color: activeTheme.primary }}
+            />
             <span>Open Q&amp;A Panel ({qnaQuestions.length})</span>
           </button>
         </footer>
@@ -514,12 +786,18 @@ export default function AudienceView() {
             onClick={() => setShowQnA(false)}
           >
             <div
-              className="absolute right-0 top-0 bottom-0 w-full max-w-sm bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl"
+              className="absolute right-0 top-0 bottom-0 w-full max-w-sm border-l shadow-2xl transition-colors"
+              style={{
+                backgroundColor: activeTheme.cardBg,
+                borderColor: activeTheme.border,
+                color: activeTheme.text,
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 onClick={() => setShowQnA(false)}
-                className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-white rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-900 z-10 cursor-pointer"
+                className="absolute top-4 right-4 p-2 rounded-full hover:opacity-75 z-10 cursor-pointer"
+                style={{ color: activeTheme.textMuted }}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -535,7 +813,14 @@ export default function AudienceView() {
   const { type, title, description, content, config } = currentSlide;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col justify-between selection:bg-zinc-900 selection:text-white pb-20">
+    <div
+      className="min-h-screen flex flex-col justify-between pb-20 transition-colors duration-300"
+      style={{
+        backgroundColor: activeTheme.bg,
+        color: activeTheme.text,
+        fontFamily: getFontFamilyStyle(activeTheme.fontFamily),
+      }}
+    >
       {/* Floating live reaction overlay */}
       <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
         {floatingEmojis.map((item) => (
@@ -550,12 +835,28 @@ export default function AudienceView() {
       </div>
 
       {/* Top Header Bar */}
-      <header className="px-4 py-3 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between sticky top-0 z-20">
+      <header
+        className="px-4 py-3 backdrop-blur-md border-b flex items-center justify-between sticky top-0 z-20 transition-colors"
+        style={{
+          backgroundColor: `${activeTheme.bg}e6`,
+          borderColor: activeTheme.border,
+        }}
+      >
         <div className="flex items-center gap-2.5">
-          <span className="px-2.5 py-0.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 text-[11px] font-mono font-bold rounded-lg uppercase">
+          <span
+            className="px-2.5 py-0.5 text-[11px] font-mono font-bold rounded-lg uppercase border transition-colors"
+            style={{
+              backgroundColor: activeTheme.cardBg,
+              borderColor: activeTheme.border,
+              color: activeTheme.primary,
+            }}
+          >
             #{joinCode}
           </span>
-          <span className="text-xs font-bold text-zinc-950 dark:text-white truncate max-w-[140px] sm:max-w-[200px]">
+          <span
+            className="text-xs font-bold truncate max-w-[140px] sm:max-w-[200px]"
+            style={{ color: activeTheme.text }}
+          >
             {displayName}
           </span>
         </div>
@@ -563,12 +864,26 @@ export default function AudienceView() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowQnA(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold border border-zinc-200 dark:border-zinc-800 transition-all active-press cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active-press cursor-pointer"
+            style={{
+              backgroundColor: activeTheme.cardBg,
+              borderColor: activeTheme.border,
+              color: activeTheme.text,
+            }}
           >
-            <MessageCircle className="w-3.5 h-3.5" />
+            <MessageCircle
+              className="w-3.5 h-3.5"
+              style={{ color: activeTheme.primary }}
+            />
             <span>Q&amp;A</span>
             {qnaQuestions.length > 0 && (
-              <span className="w-4 h-4 bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 text-[10px] rounded-full flex items-center justify-center font-bold font-mono">
+              <span
+                className="w-4 h-4 text-[10px] rounded-full flex items-center justify-center font-bold font-mono"
+                style={{
+                  backgroundColor: activeTheme.primary,
+                  color: "#FFFFFF",
+                }}
+              >
                 {qnaQuestions.length}
               </span>
             )}
@@ -581,48 +896,203 @@ export default function AudienceView() {
         key={currentSlide.slideId}
         className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 max-w-xl mx-auto w-full animate-slide-up"
       >
-        <div className="w-full mb-6 text-center space-y-1.5">
-          <span className="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider inline-block">
-            {type === "quiz"
-              ? "🎯 Quiz Challenge"
-              : type === "poll" || type === "imagepoll"
-                ? "📊 Live Poll"
-                : type === "wordcloud"
-                  ? "☁️ Word Cloud"
-                  : type === "opentext"
-                    ? "💬 Open Discussion"
-                    : type === "rating"
-                      ? "⭐ Rating Scale"
-                      : "💡 Presentation Slide"}
+        <div className="w-full mb-5 text-center space-y-2">
+          <span
+            className="px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider inline-block transition-colors"
+            style={{
+              backgroundColor: activeTheme.cardBg,
+              borderColor: activeTheme.border,
+              color: activeTheme.primary,
+            }}
+          >
+            {config?.kicker
+              ? config.kicker
+              : type === "teaching"
+                ? "📖 Teaching & Concept"
+                : type === "information"
+                  ? "📌 Key Takeaways"
+                  : type === "question"
+                    ? "❓ Discussion Topic"
+                    : type === "quiz"
+                      ? "🎯 Quiz Challenge"
+                      : type === "poll" || type === "imagepoll"
+                        ? "📊 Live Poll"
+                        : type === "wordcloud"
+                          ? "☁️ Word Cloud"
+                          : type === "opentext"
+                            ? "💬 Open Discussion"
+                            : type === "rating"
+                              ? "⭐ Rating Scale"
+                              : type === "title"
+                                ? "🎯 Presentation"
+                                : "💡 Presentation Slide"}
           </span>
 
-          <h2 className="text-xl sm:text-2xl font-black text-zinc-950 dark:text-white tracking-tight leading-snug">
+          <h2
+            className="text-xl sm:text-2xl font-black tracking-tight leading-snug"
+            style={{ color: activeTheme.text }}
+          >
             {title || "Presentation Slide"}
           </h2>
 
-          {description && (
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
-              {description}
-            </p>
-          )}
-        </div>
-
-        {/* Content Slide Display (when non-interactive text/bullet slide) */}
-        {(type === "content" ||
-          type === "default" ||
-          type === "title" ||
-          (!type && content)) && (
-          <div className="w-full bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-zinc-800/80 rounded-3xl p-6 shadow-sm space-y-4 text-center">
-            {content ? (
-              <div className="text-sm sm:text-base text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed">
-                {content}
-              </div>
-            ) : (
-              <p className="text-xs text-zinc-400">
-                Viewing presentation slide. Listen to the presenter and react
-                using the emoji bar below.
+          {description &&
+            description !== config?.paragraph &&
+            description !== content && (
+              <p
+                className="text-xs sm:text-sm max-w-md mx-auto leading-relaxed"
+                style={{ color: activeTheme.textMuted }}
+              >
+                {description}
               </p>
             )}
+        </div>
+
+        {/* Global Media/Image Display for slides with images */}
+        {(config?.mediaUrl || config?.imageUrl) && (
+          <div
+            className="w-full mb-5 overflow-hidden rounded-2xl border shadow-xs max-h-64 sm:max-h-80 flex items-center justify-center transition-colors"
+            style={{
+              backgroundColor: activeTheme.cardBg,
+              borderColor: activeTheme.border,
+            }}
+          >
+            <img
+              src={config.mediaUrl || config.imageUrl}
+              alt={config.mediaAlt || title || "Slide Visual"}
+              className="w-full h-auto max-h-64 sm:max-h-80 object-contain rounded-2xl"
+            />
+          </div>
+        )}
+
+        {/* Teaching & Informational Rich Content Slides */}
+        {(type === "teaching" ||
+          type === "information" ||
+          type === "question" ||
+          type === "content" ||
+          type === "default" ||
+          type === "title" ||
+          (!type && (content || config?.paragraph))) && (
+          <div
+            className="w-full border rounded-3xl p-5 sm:p-7 shadow-xs space-y-5 text-left transition-all"
+            style={{
+              backgroundColor: activeTheme.cardBg,
+              borderColor: activeTheme.border,
+              color: activeTheme.text,
+            }}
+          >
+            {/* Main Teaching Paragraph / Content */}
+            {(config?.paragraph ||
+              config?.content ||
+              content ||
+              description) && (
+              <div
+                className="text-sm sm:text-base leading-relaxed whitespace-pre-line font-normal"
+                style={{ color: activeTheme.text }}
+              >
+                {config?.paragraph || config?.content || content || description}
+              </div>
+            )}
+
+            {/* Bullet Points List */}
+            {Array.isArray(config?.bulletPoints) &&
+              config.bulletPoints.length > 0 && (
+                <div className="space-y-2.5 pt-1">
+                  {config.bulletPoints.map((point: string, idx: number) => (
+                    <div
+                      key={idx}
+                      className="flex items-start gap-3 p-3 rounded-2xl border transition-all"
+                      style={{
+                        backgroundColor: activeTheme.bg,
+                        borderColor: activeTheme.border,
+                        color: activeTheme.text,
+                      }}
+                    >
+                      <span
+                        className="w-6 h-6 rounded-lg font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 font-mono"
+                        style={{
+                          backgroundColor: `${activeTheme.primary}20`,
+                          color: activeTheme.primary,
+                        }}
+                      >
+                        {idx + 1}
+                      </span>
+                      <span
+                        className="text-xs sm:text-sm leading-relaxed font-medium"
+                        style={{ color: activeTheme.text }}
+                      >
+                        {point}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+            {/* Key Takeaway / Highlight Box */}
+            {(config?.takeaway || config?.callout) && (
+              <div
+                className="p-4 rounded-2xl flex items-center gap-3 shadow-xs"
+                style={{
+                  backgroundColor: activeTheme.primary,
+                  color: "#FFFFFF",
+                }}
+              >
+                <Sparkles
+                  className="w-5 h-5 shrink-0"
+                  style={{ color: activeTheme.accent }}
+                />
+                <div className="text-xs sm:text-sm font-bold">
+                  {config.takeaway || config.callout}
+                </div>
+              </div>
+            )}
+
+            {/* Author / Presenter Info if Title Slide */}
+            {(config?.author || config?.authorRole) && (
+              <div
+                className="pt-3 border-t flex items-center gap-3"
+                style={{ borderColor: activeTheme.border }}
+              >
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm"
+                  style={{
+                    backgroundColor: activeTheme.primary,
+                    color: "#FFFFFF",
+                  }}
+                >
+                  {config.author?.charAt(0) || "P"}
+                </div>
+                <div>
+                  <div
+                    className="text-xs font-bold"
+                    style={{ color: activeTheme.text }}
+                  >
+                    {config.author || "Presenter"}
+                  </div>
+                  {config.authorRole && (
+                    <div
+                      className="text-[11px]"
+                      style={{ color: activeTheme.textMuted }}
+                    >
+                      {config.authorRole}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Live Audience Engagement Note */}
+            <div
+              className="text-[11px] text-center pt-2 flex items-center justify-center gap-1.5 font-medium"
+              style={{ color: activeTheme.textMuted }}
+            >
+              <Radio
+                className="w-3 h-3 animate-pulse"
+                style={{ color: activeTheme.primary }}
+              />
+              <span>
+                Live explanation &bull; React using the emoji bar below
+              </span>
+            </div>
           </div>
         )}
 
@@ -635,6 +1105,8 @@ export default function AudienceView() {
             allowMultiple={config?.allowMultiple}
             hasSubmitted={hasSubmitted}
             responseLocked={responseLocked}
+            allAnswered={Boolean(pollResults?.allAnswered)}
+            audienceCount={audienceCount}
             onSubmit={(selected) =>
               handleInteractionSubmit("poll", { selectedOptions: selected })
             }
@@ -651,6 +1123,11 @@ export default function AudienceView() {
             timer={config?.timer}
             hasSubmitted={hasSubmitted}
             responseLocked={responseLocked}
+            allAnswered={Boolean(quizResults?.allAnswered)}
+            audienceCount={audienceCount}
+            totalResponses={
+              quizResults?.totalResponses ?? quizResults?.totalSubmissions ?? 0
+            }
             onSubmit={(selected, time) =>
               handleInteractionSubmit("quiz", {
                 selectedOptions: selected,
@@ -658,7 +1135,14 @@ export default function AudienceView() {
               })
             }
             feedback={quizFeedback}
-            revealedCorrectAnswers={revealedCorrectAnswers}
+            revealedCorrectAnswers={
+              revealedCorrectAnswers.length > 0
+                ? revealedCorrectAnswers
+                : quizResults?.correctAnswers ||
+                  quizFeedback?.correctAnswers ||
+                  config?.correctAnswers ||
+                  []
+            }
           />
         )}
 
@@ -698,14 +1182,33 @@ export default function AudienceView() {
 
         {type === "leaderboard" && (
           <div className="w-full space-y-4">
-            <div className="p-6 rounded-3xl bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 text-center shadow-xs">
-              <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/20 text-amber-500 border border-amber-500/30 flex items-center justify-center mb-3">
+            <div
+              className="p-6 rounded-3xl border text-center shadow-xs transition-colors"
+              style={{
+                backgroundColor: activeTheme.cardBg,
+                borderColor: activeTheme.border,
+              }}
+            >
+              <div
+                className="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-3 border shadow-xs"
+                style={{
+                  backgroundColor: `${activeTheme.primary}20`,
+                  borderColor: `${activeTheme.primary}40`,
+                  color: activeTheme.primary,
+                }}
+              >
                 <Trophy className="w-7 h-7" />
               </div>
-              <h3 className="text-xl font-black text-zinc-950 dark:text-white">
+              <h3
+                className="text-xl font-black"
+                style={{ color: activeTheme.text }}
+              >
                 Live Leaderboard
               </h3>
-              <p className="text-xs text-zinc-400 mt-1">
+              <p
+                className="text-xs mt-1"
+                style={{ color: activeTheme.textMuted }}
+              >
                 {leaderboard.length} participant
                 {leaderboard.length === 1 ? "" : "s"} ranked
               </p>
@@ -713,7 +1216,10 @@ export default function AudienceView() {
 
             <div className="space-y-2 max-h-[48vh] overflow-y-auto pr-1">
               {leaderboard.length === 0 ? (
-                <div className="text-center py-8 text-zinc-400 text-xs">
+                <div
+                  className="text-center py-8 text-xs"
+                  style={{ color: activeTheme.textMuted }}
+                >
                   Awaiting player points from quiz challenges...
                 </div>
               ) : (
@@ -722,25 +1228,38 @@ export default function AudienceView() {
                   return (
                     <div
                       key={idx}
-                      className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
-                        isYou
-                          ? "bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 border-transparent shadow-md"
-                          : "bg-zinc-50 dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200"
-                      }`}
+                      className="flex items-center justify-between p-3.5 rounded-2xl border transition-all"
+                      style={{
+                        backgroundColor: isYou
+                          ? activeTheme.primary
+                          : activeTheme.cardBg,
+                        borderColor: isYou
+                          ? activeTheme.primary
+                          : activeTheme.border,
+                        color: isYou ? "#FFFFFF" : activeTheme.text,
+                      }}
                     >
                       <div className="flex items-center gap-3">
                         <span
-                          className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black ${
-                            idx === 0
-                              ? "bg-amber-400 text-black shadow-xs"
-                              : idx === 1
-                                ? "bg-zinc-300 text-black"
-                                : idx === 2
-                                  ? "bg-amber-700 text-white"
-                                  : isYou
-                                    ? "bg-zinc-800 text-white dark:bg-zinc-200 dark:text-black"
-                                    : "bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
-                          }`}
+                          className="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black"
+                          style={{
+                            backgroundColor:
+                              idx === 0
+                                ? "#F59E0B"
+                                : idx === 1
+                                  ? "#94A3B8"
+                                  : idx === 2
+                                    ? "#B45309"
+                                    : isYou
+                                      ? "rgba(255,255,255,0.2)"
+                                      : `${activeTheme.primary}20`,
+                            color:
+                              idx === 0 || idx === 1 || idx === 2
+                                ? "#FFFFFF"
+                                : isYou
+                                  ? "#FFFFFF"
+                                  : activeTheme.primary,
+                          }}
                         >
                           {entry.rank || idx + 1}
                         </span>
@@ -765,21 +1284,46 @@ export default function AudienceView() {
         )}
 
         {type === "thankyou" && (
-          <div className="w-full text-center p-8 rounded-3xl bg-zinc-50 dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-3xl bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 flex items-center justify-center shadow-xs">
+          <div
+            className="w-full text-center p-8 rounded-3xl border shadow-sm space-y-4 transition-colors"
+            style={{
+              backgroundColor: activeTheme.cardBg,
+              borderColor: activeTheme.border,
+            }}
+          >
+            <div
+              className="w-16 h-16 mx-auto rounded-3xl flex items-center justify-center shadow-xs border"
+              style={{
+                backgroundColor: `${activeTheme.primary}20`,
+                borderColor: `${activeTheme.primary}40`,
+                color: activeTheme.primary,
+              }}
+            >
               <CheckCircle2 className="w-9 h-9" />
             </div>
-            <h3 className="text-2xl sm:text-3xl font-black text-zinc-950 dark:text-white">
+            <h3
+              className="text-2xl sm:text-3xl font-black"
+              style={{ color: activeTheme.text }}
+            >
               {title || "Thank You!"}
             </h3>
             {description && (
-              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto leading-relaxed">
+              <p
+                className="text-xs sm:text-sm max-w-sm mx-auto leading-relaxed"
+                style={{ color: activeTheme.textMuted }}
+              >
                 {description}
               </p>
             )}
             {config?.callToAction && (
               <div className="pt-2">
-                <span className="inline-block px-5 py-2 rounded-full bg-zinc-950 text-white dark:bg-white dark:text-zinc-950 font-bold text-xs shadow-xs">
+                <span
+                  className="inline-block px-5 py-2 rounded-full font-bold text-xs shadow-xs"
+                  style={{
+                    backgroundColor: activeTheme.primary,
+                    color: "#FFFFFF",
+                  }}
+                >
                   {config.callToAction}
                 </span>
               </div>
@@ -807,12 +1351,18 @@ export default function AudienceView() {
           onClick={() => setShowQnA(false)}
         >
           <div
-            className="absolute right-0 top-0 bottom-0 w-full max-w-sm bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl"
+            className="absolute right-0 top-0 bottom-0 w-full max-w-sm border-l shadow-2xl transition-colors"
+            style={{
+              backgroundColor: activeTheme.cardBg,
+              borderColor: activeTheme.border,
+              color: activeTheme.text,
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setShowQnA(false)}
-              className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-white rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-900 z-10 cursor-pointer"
+              className="absolute top-4 right-4 p-2 rounded-full hover:opacity-75 z-10 cursor-pointer"
+              style={{ color: activeTheme.textMuted }}
             >
               <X className="w-5 h-5" />
             </button>

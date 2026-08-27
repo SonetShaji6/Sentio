@@ -534,48 +534,86 @@ export default function AnalyticsDashboard() {
             {/* Slide Participation Chart */}
             {participation.length > 0 && (
               <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-                <h3 className="text-lg font-bold mb-6">
-                  Participation by Slide
-                </h3>
-                <div className="h-80 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={participation}
-                      layout="vertical"
-                      margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        horizontal={true}
-                        vertical={false}
-                        stroke="#374151"
-                      />
-                      <XAxis type="number" hide />
-                      <YAxis
-                        dataKey="slideTitle"
-                        type="category"
-                        stroke="#6b7280"
-                        tick={{ fontSize: 12 }}
-                        width={120}
-                      />
-                      <Tooltip
-                        cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
-                        contentStyle={{
-                          backgroundColor: "#111827",
-                          borderColor: "#374151",
-                          color: "#fff",
-                          borderRadius: "8px",
-                        }}
-                      />
-                      <Bar
-                        dataKey="responseCount"
-                        name="Responses"
-                        fill="#3b82f6"
-                        radius={[0, 4, 4, 0]}
-                        barSize={24}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-bold">
+                      Participation by Slide
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Response counts and interactions across each slide (
+                      {participation.length} slides)
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  className="w-full overflow-y-auto max-h-[500px] pr-2"
+                  style={{
+                    minHeight: `${Math.min(500, Math.max(260, participation.length * 42))}px`,
+                  }}
+                >
+                  <div
+                    style={{
+                      height: `${Math.max(260, participation.length * 42)}px`,
+                      width: "100%",
+                    }}
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={participation}
+                        layout="vertical"
+                        margin={{ top: 10, right: 30, left: 20, bottom: 10 }}
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          horizontal={true}
+                          vertical={false}
+                          stroke="#374151"
+                          opacity={0.3}
+                        />
+                        <XAxis
+                          type="number"
+                          stroke="#6b7280"
+                          allowDecimals={false}
+                        />
+                        <YAxis
+                          dataKey="slideTitle"
+                          type="category"
+                          stroke="#6b7280"
+                          tick={{ fontSize: 11, fill: "#9ca3af" }}
+                          width={160}
+                          tickFormatter={(val: string) =>
+                            val && val.length > 24
+                              ? `${val.substring(0, 22)}…`
+                              : val || "Slide"
+                          }
+                        />
+                        <Tooltip
+                          cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
+                          contentStyle={{
+                            backgroundColor: "#09090b",
+                            borderColor: "#27272a",
+                            color: "#fff",
+                            borderRadius: "12px",
+                            fontSize: "12px",
+                            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5)",
+                          }}
+                          formatter={(value: any) => [
+                            `${value} responses`,
+                            "Audience Responses",
+                          ]}
+                          labelFormatter={(label: any) => `Slide: ${label}`}
+                        />
+                        <Bar
+                          dataKey="responseCount"
+                          name="Responses"
+                          fill="#3b82f6"
+                          radius={[0, 6, 6, 0]}
+                          barSize={18}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
             )}

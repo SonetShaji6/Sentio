@@ -244,6 +244,107 @@ function SlideConfigPanel({
           </div>
         );
 
+      case "teaching":
+        const teachingBullets: string[] = slide.config?.bulletPoints || [];
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+                Topic / Subject Tag (Kicker)
+              </label>
+              <input
+                type="text"
+                value={slide.config?.kicker ?? ""}
+                onChange={(e) => handleConfigChange("kicker", e.target.value)}
+                disabled={Boolean(slide.isLocked)}
+                placeholder="e.g. Core Principle, Lesson 3, Biology 101"
+                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 outline-none focus:border-blue-500 transition-all disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+                Teaching Paragraph &amp; Explanation
+              </label>
+              <textarea
+                rows={5}
+                value={slide.config?.paragraph ?? slide.config?.content ?? ""}
+                onChange={(e) => {
+                  handleConfigChange("paragraph", e.target.value);
+                  handleConfigChange("content", e.target.value);
+                }}
+                disabled={Boolean(slide.isLocked)}
+                placeholder="Write the full lesson explanation, concept breakdown, or teaching notes here. Participants will be able to read and follow this along with the presenter."
+                className="w-full px-3 py-2.5 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 outline-none focus:border-blue-500 transition-all disabled:opacity-50 leading-relaxed resize-y"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+                Key Takeaway / Highlight Rule (Optional)
+              </label>
+              <input
+                type="text"
+                value={slide.config?.takeaway ?? slide.config?.callout ?? ""}
+                onChange={(e) => {
+                  handleConfigChange("takeaway", e.target.value);
+                  handleConfigChange("callout", e.target.value);
+                }}
+                disabled={Boolean(slide.isLocked)}
+                placeholder="e.g. Remember: Always normalize your data before training."
+                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 outline-none focus:border-blue-500 transition-all disabled:opacity-50"
+              />
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
+                Key Bullet Points (Optional)
+              </label>
+              <div className="space-y-2">
+                {teachingBullets.map((point: string, idx: number) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={point ?? ""}
+                      onChange={(e) => {
+                        const updated = [...teachingBullets];
+                        updated[idx] = e.target.value;
+                        handleConfigChange("bulletPoints", updated);
+                      }}
+                      disabled={Boolean(slide.isLocked)}
+                      placeholder={`Key Point ${idx + 1}`}
+                      className="flex-1 px-3 py-2 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 outline-none focus:border-blue-500 transition-all disabled:opacity-50"
+                    />
+                    <button
+                      onClick={() => {
+                        const updated = [...teachingBullets];
+                        updated.splice(idx, 1);
+                        handleConfigChange("bulletPoints", updated);
+                      }}
+                      disabled={Boolean(slide.isLocked)}
+                      className="p-2 text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => {
+                    handleConfigChange("bulletPoints", [
+                      ...teachingBullets,
+                      "",
+                    ]);
+                  }}
+                  disabled={Boolean(slide.isLocked)}
+                  className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-bold py-1 px-2 hover:underline cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Point
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+
       case "information":
         const bullets: string[] = slide.config?.bulletPoints || [];
         return (

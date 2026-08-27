@@ -71,6 +71,18 @@ export const SOCKET_EVENTS = {
   QNA_UPDATE: "qna:update",
   QNA_MODERATE: "qna:moderate",
 
+  // Participant Management & Admission Approval
+  HOST_KICK_PARTICIPANT: "host:kick-participant",
+  HOST_ADMIT_PARTICIPANT: "host:admit-participant",
+  HOST_REJECT_PARTICIPANT: "host:reject-participant",
+  HOST_ADMIT_ALL: "host:admit-all",
+  HOST_TOGGLE_APPROVAL: "host:toggle-approval",
+  PARTICIPANT_KICKED: "participant:kicked",
+  PARTICIPANTS_UPDATE: "participants:update",
+  ADMISSION_PENDING: "admission:pending",
+  ADMISSION_APPROVED: "admission:approved",
+  ADMISSION_REJECTED: "admission:rejected",
+
   // Results (legacy compat)
   RESULTS_UPDATED: "results-updated",
 } as const;

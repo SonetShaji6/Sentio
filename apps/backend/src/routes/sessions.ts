@@ -190,6 +190,42 @@ router.get(
   },
 );
 
+// ── Get Session Participants ──
+router.get(
+  "/:id/participants",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const session = await Session.findById(req.params.id);
+      if (!session) {
+        res.status(404).json({ message: "Session not found" });
+        return;
+      }
+
+      const presentation = await Presentation.findById(session.presentationId);
+      if (!presentation || presentation.owner.toString() !== req.user.id) {
+        res.status(403).json({ message: "Access denied" });
+        return;
+      }
+
+      res.json({
+        requireApproval: session.requireApproval !== false,
+        participants: session.participants.map((p) => ({
+          socketId: p.socketId,
+          displayName: p.displayName,
+          isOnline: p.isOnline,
+          isApproved: p.isApproved !== false,
+          joinedAt: p.joinedAt,
+          score: p.score,
+        })),
+      });
+    } catch (error) {
+      console.error("Get participants error:", error);
+      res.status(500).json({ message: "Failed to fetch participants" });
+    }
+  },
+);
+
 // ── Get Q&A Questions ──
 router.get(
   "/:id/qna",
@@ -217,6 +253,9 @@ router.get(
           id: q._id.toString(),
           displayName: q.displayName,
           questionText: q.questionText,
+          answerText: q.answerText || "",
+          answeredBy: q.answeredBy || "",
+          answeredAt: q.answeredAt ? q.answeredAt.toISOString() : undefined,
           status: q.status,
           upvotes: q.upvotes,
           createdAt: q.createdAt.toISOString(),

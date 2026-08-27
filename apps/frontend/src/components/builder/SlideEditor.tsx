@@ -26,6 +26,7 @@ import {
   Users,
   Radio,
   Quote,
+  BookOpen,
 } from "lucide-react";
 import { SlideCanvas } from "./SlideCanvas";
 
@@ -342,6 +343,218 @@ export function SlideEditor({
                 }}
               >
                 16 : 9 Widescreen
+              </div>
+            </div>
+          </div>
+        );
+
+      case "teaching":
+        const teachingParagraph =
+          cfg.paragraph ||
+          cfg.content ||
+          slide.description ||
+          "Add your core lesson explanation or concept definition here. This slide is designed for teaching concepts with clear typography, paragraphs, bullet points, and supporting visual media.";
+        const teachingBullets: string[] = cfg.bulletPoints || [];
+        const teachingTakeaway = cfg.takeaway || cfg.callout;
+        const kickerText = cfg.kicker || "Teaching & Concept";
+
+        return (
+          <div className="flex flex-col h-full p-20 sm:p-24 justify-between">
+            {/* Header / Kicker */}
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <span
+                  className="px-4 py-1.5 rounded-full text-lg font-bold uppercase tracking-wider flex items-center gap-2"
+                  style={{
+                    backgroundColor: `${primaryColor}20`,
+                    color: primaryColor,
+                  }}
+                >
+                  <BookOpen className="w-5 h-5" />
+                  {kickerText}
+                </span>
+              </div>
+              <h1
+                className={`${titleFontSizeClass} font-black tracking-tight mb-3 leading-tight`}
+                style={{ color: textColor, textAlign }}
+              >
+                {slide.title || "Core Lesson Topic"}
+              </h1>
+              {slide.description && slide.description !== teachingParagraph && (
+                <p
+                  className="text-2xl font-medium leading-relaxed max-w-5xl mb-4 opacity-90"
+                  style={{ color: textMuted, textAlign }}
+                >
+                  {slide.description}
+                </p>
+              )}
+            </div>
+
+            {/* Main Content Area: Split Media or Single Column */}
+            {hasMedia &&
+            (mediaPosition === "right" ||
+              mediaPosition === "left" ||
+              mediaPosition === "card") ? (
+              <div className="flex gap-10 my-auto items-center">
+                {mediaPosition === "left" && (
+                  <div
+                    className="h-[460px] shrink-0"
+                    style={{ width: `${mediaWidthPercent}%` }}
+                  >
+                    {renderMedia()}
+                  </div>
+                )}
+                <div className="flex-1 space-y-6">
+                  <div
+                    className="text-2xl sm:text-3xl leading-relaxed whitespace-pre-line font-normal"
+                    style={{ color: textColor, textAlign }}
+                  >
+                    {teachingParagraph}
+                  </div>
+
+                  {teachingBullets.length > 0 && (
+                    <div className="space-y-3 pt-2">
+                      {teachingBullets.map((point, idx) => (
+                        <div
+                          key={idx}
+                          className="p-4 rounded-xl flex items-start gap-3 border"
+                          style={{ backgroundColor: cardBg, borderColor }}
+                        >
+                          <span
+                            className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 mt-0.5"
+                            style={{
+                              backgroundColor: `${primaryColor}25`,
+                              color: primaryColor,
+                            }}
+                          >
+                            {idx + 1}
+                          </span>
+                          <span
+                            className="text-xl font-medium"
+                            style={{ color: textColor }}
+                          >
+                            {point}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {teachingTakeaway && (
+                    <div
+                      className="p-5 rounded-2xl border flex items-center gap-4 shadow-sm"
+                      style={{
+                        backgroundColor: `${primaryColor}12`,
+                        borderColor: `${primaryColor}40`,
+                      }}
+                    >
+                      <Sparkles
+                        className="w-6 h-6 shrink-0"
+                        style={{ color: primaryColor }}
+                      />
+                      <div
+                        className="text-xl font-bold"
+                        style={{ color: textColor }}
+                      >
+                        {teachingTakeaway}
+                      </div>
+                    </div>
+                  )}
+
+                  {mediaPosition === "card" && (
+                    <div className="h-60 mt-4">{renderMedia()}</div>
+                  )}
+                </div>
+                {mediaPosition === "right" && (
+                  <div
+                    className="h-[460px] shrink-0"
+                    style={{ width: `${mediaWidthPercent}%` }}
+                  >
+                    {renderMedia()}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-8 my-auto max-w-5xl">
+                <div
+                  className="text-3xl sm:text-4xl leading-relaxed whitespace-pre-line font-normal"
+                  style={{ color: textColor, textAlign }}
+                >
+                  {teachingParagraph}
+                </div>
+
+                {teachingBullets.length > 0 && (
+                  <div className="grid grid-cols-2 gap-5 pt-2">
+                    {teachingBullets.map((point, idx) => (
+                      <div
+                        key={idx}
+                        className="p-6 rounded-2xl flex items-start gap-4 border"
+                        style={{ backgroundColor: cardBg, borderColor }}
+                      >
+                        <span
+                          className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-base shrink-0"
+                          style={{
+                            backgroundColor: `${primaryColor}25`,
+                            color: primaryColor,
+                          }}
+                        >
+                          {idx + 1}
+                        </span>
+                        <span
+                          className="text-2xl font-medium"
+                          style={{ color: textColor }}
+                        >
+                          {point}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {teachingTakeaway && (
+                  <div
+                    className="p-6 rounded-2xl border flex items-center gap-4 shadow-sm"
+                    style={{
+                      backgroundColor: `${primaryColor}15`,
+                      borderColor: `${primaryColor}50`,
+                    }}
+                  >
+                    <Sparkles
+                      className="w-7 h-7 shrink-0"
+                      style={{ color: primaryColor }}
+                    />
+                    <div
+                      className="text-2xl font-bold"
+                      style={{ color: textColor }}
+                    >
+                      {teachingTakeaway}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Bottom Lesson Footer */}
+            <div
+              className="flex items-center justify-between pt-6 border-t w-full"
+              style={{ borderColor }}
+            >
+              <div
+                className="flex items-center gap-2 text-xl font-medium"
+                style={{ color: textMuted }}
+              >
+                <BookOpen className="w-5 h-5" />
+                <span>Concept &amp; Explanation</span>
+              </div>
+              <div
+                className="text-lg font-mono px-4 py-1.5 rounded-lg border"
+                style={{
+                  backgroundColor: cardBg,
+                  color: textMuted,
+                  borderColor,
+                }}
+              >
+                Audience Reaction Enabled
               </div>
             </div>
           </div>

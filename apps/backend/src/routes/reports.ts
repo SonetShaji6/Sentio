@@ -2,6 +2,8 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import Report from "../models/Report";
 import Session from "../models/Session";
+import Presentation from "../models/Presentation";
+import * as reportService from "../services/reportService";
 import { processReportJob } from "../services/reportService";
 import { deleteFileFromAzure } from "../services/azure";
 import { sendReportEmail } from "../services/email";
@@ -17,11 +19,9 @@ router.post(
       const { sessionId, format, type, sendEmail } = req.body;
 
       if (!sessionId || !format) {
-        res
-          .status(400)
-          .json({
-            message: "sessionId and format (pdf, csv, json) are required.",
-          });
+        res.status(400).json({
+          message: "sessionId and format (pdf, csv, json) are required.",
+        });
         return;
       }
 
@@ -34,11 +34,9 @@ router.post(
 
       const presentation = session.presentationId as any;
       if (!presentation || presentation.owner?.toString() !== req.user.id) {
-        res
-          .status(403)
-          .json({
-            message: "Access denied. You do not own this presentation session.",
-          });
+        res.status(403).json({
+          message: "Access denied. You do not own this presentation session.",
+        });
         return;
       }
 
@@ -71,6 +69,68 @@ router.post(
       res
         .status(500)
         .json({ message: "Failed to initialize report generation" });
+    }
+  },
+);
+
+// ── Generate Report for a Presentation directly (from presentations list) ──
+router.post(
+  "/presentation/:presentationId",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const { presentationId } = req.params;
+      const presentation = await Presentation.findById(presentationId);
+      if (!presentation) {
+        res.status(404).json({ message: "Presentation not found" });
+        return;
+      }
+
+      if (presentation.owner?.toString() !== req.user.id) {
+        res.status(403).json({ message: "Access denied" });
+        return;
+      }
+
+      // Find the most recent session for this presentation
+      let session = await Session.findOne({ presentationId }).sort({
+        createdAt: -1,
+      });
+
+      // If no session exists, create a completed mock/snapshot session so report can be generated
+      if (!session) {
+        session = await Session.create({
+          presentationId: presentation._id,
+          hostSocketId: "manual-export",
+          joinCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+          status: "ended",
+          startedAt: new Date(Date.now() - 30 * 60000),
+          endedAt: new Date(),
+          participants: [],
+        });
+      }
+
+      const startTime = Date.now();
+      const result = await reportService.generateAndSaveSessionReport(
+        session._id.toString(),
+      );
+
+      const processingTimeMs = Date.now() - startTime;
+
+      if (!result || !result.report) {
+        res.status(500).json({ message: "Failed to generate report" });
+        return;
+      }
+
+      res.json({
+        message: "Report generated successfully",
+        report: result.report,
+        fileResource: result.fileResource,
+        fileUrl: result.report.fileUrl,
+        processingTimeMs,
+      });
+    } catch (error) {
+      console.error("Generate presentation report error:", error);
+      res.status(500).json({ message: "Failed to generate report" });
     }
   },
 );

@@ -11,7 +11,7 @@ import * as reactionService from "./services/reactionService";
 import * as reportService from "./services/reportService";
 
 type UserRoomJoinPayload = { userId?: string };
-type HostJoinPayload = { joinCode?: string };
+type HostJoinPayload = { joinCode?: string; presentationId?: string };
 type HostStartPayload = {
   experienceId?: any;
   presentationId?: any;
@@ -47,6 +47,7 @@ type QnaModeratePayload = {
   joinCode: string;
   questionId: string;
   action: string;
+  answerText?: string;
 };
 
 export function registerSocketHandlers(io: Server): void {
@@ -74,22 +75,65 @@ function registerUserRoomEvents(socket: Socket): void {
 // ── Host Events ──
 
 function registerHostEvents(socket: Socket, io: Server): void {
-  socket.on("host-join", async ({ joinCode }: HostJoinPayload) => {
-    try {
-      const cleanCode = (joinCode || "").trim().toUpperCase();
-      if (cleanCode) {
-        socket.join(cleanCode);
+  socket.on(
+    "host-join",
+    async ({ joinCode, presentationId }: HostJoinPayload) => {
+      try {
+        const cleanCode = (joinCode || "").trim().toUpperCase();
+        if (cleanCode) {
+          socket.join(cleanCode);
+
+          // Find or create session in waiting status
+          let session = await Session.findOne({
+            $or: [
+              { joinCode: cleanCode, status: { $ne: "ended" } },
+              ...(presentationId
+                ? [
+                    {
+                      presentationId: presentationId as any,
+                      status: { $ne: "ended" },
+                    },
+                  ]
+                : []),
+            ],
+          } as any);
+
+          if (!session) {
+            session = new Session({
+              presentationId: presentationId || undefined,
+              joinCode: cleanCode,
+              status: "waiting",
+              startedAt: new Date(),
+              hostSocketId: socket.id,
+              currentSlideIndex: 0,
+            });
+            await session.save();
+
+            if (presentationId) {
+              await Presentation.findByIdAndUpdate(presentationId, {
+                sessionCode: cleanCode,
+              });
+            }
+          } else {
+            session.hostSocketId = socket.id;
+            if (presentationId && !session.presentationId) {
+              session.presentationId = presentationId as any;
+            }
+            if (cleanCode) session.joinCode = cleanCode;
+            await session.save();
+          }
+        }
+      } catch (error) {
+        console.error("host-join error:", error);
       }
-    } catch (error) {
-      console.error("host-join error:", error);
-    }
-  });
+    },
+  );
 
   socket.on(
     SOCKET_EVENTS.HOST_START,
     async ({ experienceId, presentationId, joinCode }: HostStartPayload) => {
       try {
-        const cleanCode = (joinCode || "").toUpperCase();
+        const cleanCode = (joinCode || "").trim().toUpperCase();
         const orConditions: any[] = [];
         if (cleanCode) orConditions.push({ joinCode: cleanCode });
         if (presentationId) {
@@ -348,6 +392,299 @@ function registerHostEvents(socket: Socket, io: Server): void {
       }
     },
   );
+  socket.on(
+    SOCKET_EVENTS.HOST_KICK_PARTICIPANT,
+    async ({ joinCode, socketId, displayName }: any) => {
+      try {
+        const cleanCode = (joinCode || "").trim().toUpperCase();
+        const session = await Session.findOne({ joinCode: cleanCode });
+        if (!session || session.hostSocketId !== socket.id) {
+          socket.emit(SOCKET_EVENTS.INTERACTION_ERROR, {
+            message: "Only the presenter can kick participants",
+          });
+          return;
+        }
+
+        const cleanName = (displayName || "").toLowerCase().trim();
+        if (!session.bannedParticipants) session.bannedParticipants = [];
+        if (cleanName && !session.bannedParticipants.includes(cleanName)) {
+          session.bannedParticipants.push(cleanName);
+        }
+
+        const participantIndex = session.participants.findIndex(
+          (p) => p.socketId === socketId || p.displayName === displayName,
+        );
+
+        let targetSocketId = socketId;
+        if (participantIndex !== -1) {
+          targetSocketId =
+            session.participants[participantIndex].socketId || socketId;
+          session.participants.splice(participantIndex, 1);
+        }
+
+        await session.save();
+
+        if (targetSocketId) {
+          io.to(targetSocketId).emit(SOCKET_EVENTS.PARTICIPANT_KICKED, {
+            message:
+              "You have been removed from this session by the presenter and cannot rejoin.",
+          });
+          const targetSocket = io.sockets.sockets.get(targetSocketId);
+          if (targetSocket) {
+            targetSocket.leave(cleanCode);
+          }
+        }
+
+        const onlineParticipants = session.participants.filter(
+          (p) => p.isOnline && p.isApproved !== false,
+        );
+        io.to(cleanCode).emit(SOCKET_EVENTS.AUDIENCE_UPDATED, {
+          count: onlineParticipants.length,
+        });
+        io.to(cleanCode).emit(SOCKET_EVENTS.PARTICIPANTS_UPDATE, {
+          requireApproval: session.requireApproval !== false,
+          participants: session.participants.map((p) => ({
+            socketId: p.socketId,
+            displayName: p.displayName,
+            isOnline: p.isOnline,
+            isApproved: p.isApproved !== false,
+            joinedAt: p.joinedAt,
+            score: p.score,
+          })),
+        });
+      } catch (error) {
+        console.error("host:kick-participant error:", error);
+      }
+    },
+  );
+
+  // Presenter admits a single pending participant
+  socket.on(
+    SOCKET_EVENTS.HOST_ADMIT_PARTICIPANT,
+    async ({ joinCode, socketId, displayName }: any) => {
+      try {
+        const cleanCode = (joinCode || "").trim().toUpperCase();
+        const session = await Session.findOne({ joinCode: cleanCode });
+        if (!session || session.hostSocketId !== socket.id) return;
+
+        const participant = session.participants.find(
+          (p) => p.socketId === socketId || p.displayName === displayName,
+        );
+
+        if (participant) {
+          participant.isApproved = true;
+          await session.save();
+
+          let presTheme = null;
+          if (session.presentationId) {
+            const pres = await Presentation.findById(
+              session.presentationId,
+            ).select("theme");
+            if (pres && pres.theme) presTheme = pres.theme;
+          }
+
+          if (participant.socketId) {
+            io.to(participant.socketId).emit(SOCKET_EVENTS.ADMISSION_APPROVED, {
+              session: {
+                ...session.toObject(),
+                theme: presTheme,
+              },
+            });
+            io.to(participant.socketId).emit(SOCKET_EVENTS.JOIN_SUCCESS, {
+              session: {
+                ...session.toObject(),
+                theme: presTheme,
+              },
+            });
+
+            // If presentation is live, send current slide data
+            if (session.presentationId && session.status === "live") {
+              const slides = await Slide.find({
+                presentationId: session.presentationId,
+              }).sort({ order: 1 });
+              const slideIndex = session.currentSlideIndex || 0;
+              if (slides[slideIndex]) {
+                const targetSock = io.sockets.sockets.get(participant.socketId);
+                if (targetSock) {
+                  await broadcastSlideData(
+                    io,
+                    cleanCode,
+                    slides[slideIndex],
+                    session,
+                    targetSock,
+                  );
+                }
+              }
+            }
+          }
+
+          const approvedOnline = session.participants.filter(
+            (p) => p.isOnline && p.isApproved !== false,
+          );
+          io.to(cleanCode).emit(SOCKET_EVENTS.AUDIENCE_UPDATED, {
+            count: approvedOnline.length,
+          });
+          io.to(cleanCode).emit(SOCKET_EVENTS.PARTICIPANTS_UPDATE, {
+            requireApproval: session.requireApproval !== false,
+            participants: session.participants.map((p) => ({
+              socketId: p.socketId,
+              displayName: p.displayName,
+              isOnline: p.isOnline,
+              isApproved: p.isApproved !== false,
+              joinedAt: p.joinedAt,
+              score: p.score,
+            })),
+          });
+        }
+      } catch (err) {
+        console.error("host:admit-participant error:", err);
+      }
+    },
+  );
+
+  // Presenter rejects a pending participant
+  socket.on(
+    SOCKET_EVENTS.HOST_REJECT_PARTICIPANT,
+    async ({ joinCode, socketId, displayName }: any) => {
+      try {
+        const cleanCode = (joinCode || "").trim().toUpperCase();
+        const session = await Session.findOne({ joinCode: cleanCode });
+        if (!session || session.hostSocketId !== socket.id) return;
+
+        const cleanName = (displayName || "").toLowerCase().trim();
+        if (!session.bannedParticipants) session.bannedParticipants = [];
+        if (cleanName && !session.bannedParticipants.includes(cleanName)) {
+          session.bannedParticipants.push(cleanName);
+        }
+
+        const idx = session.participants.findIndex(
+          (p) => p.socketId === socketId || p.displayName === displayName,
+        );
+        let targetSocketId = socketId;
+        if (idx !== -1) {
+          targetSocketId = session.participants[idx].socketId || socketId;
+          session.participants.splice(idx, 1);
+          await session.save();
+        }
+
+        if (targetSocketId) {
+          io.to(targetSocketId).emit(SOCKET_EVENTS.ADMISSION_REJECTED, {
+            message:
+              "Your request to join this session was declined by the presenter.",
+          });
+          const targetSocket = io.sockets.sockets.get(targetSocketId);
+          if (targetSocket) {
+            targetSocket.leave(cleanCode);
+          }
+        }
+
+        io.to(cleanCode).emit(SOCKET_EVENTS.PARTICIPANTS_UPDATE, {
+          requireApproval: session.requireApproval !== false,
+          participants: session.participants.map((p) => ({
+            socketId: p.socketId,
+            displayName: p.displayName,
+            isOnline: p.isOnline,
+            isApproved: p.isApproved !== false,
+            joinedAt: p.joinedAt,
+            score: p.score,
+          })),
+        });
+      } catch (err) {
+        console.error("host:reject-participant error:", err);
+      }
+    },
+  );
+
+  // Presenter admits all pending participants
+  socket.on(SOCKET_EVENTS.HOST_ADMIT_ALL, async ({ joinCode }: any) => {
+    try {
+      const cleanCode = (joinCode || "").trim().toUpperCase();
+      const session = await Session.findOne({ joinCode: cleanCode });
+      if (!session || session.hostSocketId !== socket.id) return;
+
+      let presTheme = null;
+      if (session.presentationId) {
+        const pres = await Presentation.findById(session.presentationId).select(
+          "theme",
+        );
+        if (pres && pres.theme) presTheme = pres.theme;
+      }
+
+      for (const p of session.participants) {
+        if (p.isApproved === false) {
+          p.isApproved = true;
+          if (p.socketId) {
+            io.to(p.socketId).emit(SOCKET_EVENTS.ADMISSION_APPROVED, {
+              session: { ...session.toObject(), theme: presTheme },
+            });
+            io.to(p.socketId).emit(SOCKET_EVENTS.JOIN_SUCCESS, {
+              session: { ...session.toObject(), theme: presTheme },
+            });
+          }
+        }
+      }
+      await session.save();
+
+      if (session.presentationId && session.status === "live") {
+        const slides = await Slide.find({
+          presentationId: session.presentationId,
+        }).sort({ order: 1 });
+        const slideIndex = session.currentSlideIndex || 0;
+        if (slides[slideIndex]) {
+          await broadcastSlideData(io, cleanCode, slides[slideIndex], session);
+        }
+      }
+
+      const approvedOnline = session.participants.filter(
+        (p) => p.isOnline && p.isApproved !== false,
+      );
+      io.to(cleanCode).emit(SOCKET_EVENTS.AUDIENCE_UPDATED, {
+        count: approvedOnline.length,
+      });
+      io.to(cleanCode).emit(SOCKET_EVENTS.PARTICIPANTS_UPDATE, {
+        requireApproval: session.requireApproval !== false,
+        participants: session.participants.map((p) => ({
+          socketId: p.socketId,
+          displayName: p.displayName,
+          isOnline: p.isOnline,
+          isApproved: p.isApproved !== false,
+          joinedAt: p.joinedAt,
+          score: p.score,
+        })),
+      });
+    } catch (err) {
+      console.error("host:admit-all error:", err);
+    }
+  });
+
+  // Toggle requireApproval setting
+  socket.on(
+    SOCKET_EVENTS.HOST_TOGGLE_APPROVAL,
+    async ({ joinCode, requireApproval }: any) => {
+      try {
+        const cleanCode = (joinCode || "").trim().toUpperCase();
+        const session = await Session.findOne({ joinCode: cleanCode });
+        if (!session || session.hostSocketId !== socket.id) return;
+
+        session.requireApproval = Boolean(requireApproval);
+        await session.save();
+
+        io.to(cleanCode).emit(SOCKET_EVENTS.PARTICIPANTS_UPDATE, {
+          requireApproval: session.requireApproval,
+          participants: session.participants.map((p) => ({
+            socketId: p.socketId,
+            displayName: p.displayName,
+            isOnline: p.isOnline,
+            isApproved: p.isApproved !== false,
+            joinedAt: p.joinedAt,
+            score: p.score,
+          })),
+        });
+      } catch (err) {
+        console.error("host:toggle-approval error:", err);
+      }
+    },
+  );
 }
 
 // ── Audience Events ──
@@ -358,33 +695,92 @@ function registerAudienceEvents(socket: Socket, io: Server): void {
     async ({ joinCode, displayName }: JoinSessionPayload) => {
       try {
         const cleanCode = (joinCode || "").trim().toUpperCase();
-        const session = await Session.findOne({
+        const cleanName = (displayName || "").trim();
+        const cleanNameLower = cleanName.toLowerCase();
+
+        let session = await Session.findOne({
           joinCode: cleanCode,
           status: { $ne: "ended" },
         });
+
         if (!session) {
+          // Check if there is an active presentation with this code
+          const presentation = await Presentation.findOne({
+            $or: [
+              { sessionCode: cleanCode, isDeleted: false },
+              {
+                shareId: { $regex: new RegExp(`^${cleanCode}`, "i") },
+                isDeleted: false,
+              },
+            ],
+          });
+
+          if (presentation) {
+            session = new Session({
+              presentationId: presentation._id,
+              joinCode: cleanCode,
+              status: presentation.status === "live" ? "live" : "waiting",
+              startedAt: new Date(),
+              currentSlideIndex: 0,
+              requireApproval: true,
+              bannedParticipants: [],
+            });
+            await session.save();
+          } else {
+            socket.emit(
+              SOCKET_EVENTS.JOIN_ERROR,
+              "Session not found or has ended.",
+            );
+            return;
+          }
+        }
+
+        // Check if participant is banned / kicked
+        if (
+          session.bannedParticipants &&
+          session.bannedParticipants.includes(cleanNameLower)
+        ) {
           socket.emit(
             SOCKET_EVENTS.JOIN_ERROR,
-            "Session not found or has ended.",
+            "You have been removed from this session by the presenter and cannot rejoin.",
           );
           return;
         }
 
         socket.join(cleanCode);
 
+        // Resolve presentation theme
+        let presTheme = null;
+        if (session.presentationId) {
+          const pres = await Presentation.findById(
+            session.presentationId,
+          ).select("theme");
+          if (pres && pres.theme) {
+            presTheme = pres.theme;
+          }
+        }
+
+        const requiresApproval = session.requireApproval !== false;
         const existingParticipant = session.participants.find(
-          (p) => p.displayName === displayName,
+          (p) => p.displayName === cleanName,
         );
+
+        // If approval is required, check if user was already approved previously
+        const isApproved = requiresApproval
+          ? Boolean(existingParticipant?.isApproved)
+          : true;
 
         if (existingParticipant) {
           existingParticipant.socketId = socket.id;
           existingParticipant.isOnline = true;
+          existingParticipant.isApproved = isApproved;
         } else {
           session.participants.push({
             socketId: socket.id,
-            displayName,
+            displayName: cleanName,
             joinedAt: new Date(),
             isOnline: true,
+            isApproved,
             score: 0,
             responses: [],
           });
@@ -392,8 +788,39 @@ function registerAudienceEvents(socket: Socket, io: Server): void {
 
         await session.save();
 
-        // Send current session info to participant
-        socket.emit(SOCKET_EVENTS.JOIN_SUCCESS, { session });
+        if (!isApproved) {
+          // Put user into pending approval state
+          socket.emit(SOCKET_EVENTS.ADMISSION_PENDING, {
+            joinCode: cleanCode,
+            displayName: cleanName,
+            session: {
+              ...session.toObject(),
+              theme: presTheme,
+            },
+          });
+
+          // Notify presenter of the join request
+          io.to(cleanCode).emit(SOCKET_EVENTS.PARTICIPANTS_UPDATE, {
+            requireApproval: session.requireApproval !== false,
+            participants: session.participants.map((p) => ({
+              socketId: p.socketId,
+              displayName: p.displayName,
+              isOnline: p.isOnline,
+              isApproved: p.isApproved !== false,
+              joinedAt: p.joinedAt,
+              score: p.score,
+            })),
+          });
+          return;
+        }
+
+        // Participant is approved — emit success & send slide data
+        socket.emit(SOCKET_EVENTS.JOIN_SUCCESS, {
+          session: {
+            ...session.toObject(),
+            theme: presTheme,
+          },
+        });
 
         // If presentation is live, immediately send current slide data to participant
         if (session.presentationId && session.status === "live") {
@@ -425,8 +852,22 @@ function registerAudienceEvents(socket: Socket, io: Server): void {
           }
         }
 
+        const approvedOnline = session.participants.filter(
+          (p) => p.isOnline && p.isApproved !== false,
+        );
         io.to(cleanCode).emit(SOCKET_EVENTS.AUDIENCE_UPDATED, {
-          count: session.participants.filter((p) => p.isOnline).length,
+          count: approvedOnline.length,
+        });
+        io.to(cleanCode).emit(SOCKET_EVENTS.PARTICIPANTS_UPDATE, {
+          requireApproval: session.requireApproval !== false,
+          participants: session.participants.map((p) => ({
+            socketId: p.socketId,
+            displayName: p.displayName,
+            isOnline: p.isOnline,
+            isApproved: p.isApproved !== false,
+            joinedAt: p.joinedAt,
+            score: p.score,
+          })),
         });
 
         // Broadcast updated live leaderboard with all joined users
@@ -453,51 +894,87 @@ function registerInteractionEvents(socket: Socket, io: Server): void {
     async ({ joinCode, slideId, type, payload }: InteractionSubmitPayload) => {
       try {
         let result;
+        const cleanCode = (joinCode || "").trim().toUpperCase();
 
         switch (type) {
           case "poll": {
             result = await interactionService.submitPollResponse(
-              joinCode,
+              cleanCode,
               slideId,
               socket.id,
               payload.selectedOptions,
             );
             if (!result.error) {
-              io.to(joinCode).emit(SOCKET_EVENTS.POLL_UPDATE, result.result);
+              const session = await Session.findOne({ joinCode: cleanCode });
+              const onlineCount =
+                session?.participants.filter(
+                  (p) => p.isOnline && p.isApproved !== false,
+                ).length || 0;
+              const totalResponses =
+                result.result?.totalResponses ??
+                result.result?.totalSubmissions ??
+                0;
+              const allAnswered =
+                onlineCount > 0 && totalResponses >= onlineCount;
+
+              io.to(cleanCode).emit(SOCKET_EVENTS.POLL_UPDATE, {
+                ...result.result,
+                allAnswered,
+                audienceCount: onlineCount,
+              });
             }
             break;
           }
 
           case "quiz": {
             result = await interactionService.submitQuizResponse(
-              joinCode,
+              cleanCode,
               slideId,
               socket.id,
               payload.selectedOptions,
               payload.responseTimeMs,
             );
             if (!result.error) {
-              // Send quiz result to room
-              io.to(joinCode).emit(SOCKET_EVENTS.QUIZ_UPDATE, result.result);
+              const session = await Session.findOne({ joinCode: cleanCode });
+              const onlineCount =
+                session?.participants.filter(
+                  (p) => p.isOnline && p.isApproved !== false,
+                ).length || 0;
+              const totalResponses =
+                result.result?.totalResponses ??
+                result.result?.totalSubmissions ??
+                0;
+              const allAnswered =
+                onlineCount > 0 && totalResponses >= onlineCount;
+
+              const correctAnswers =
+                result.result?.correctAnswers || result.correctAnswers || [];
+
+              // Send quiz result to room with correct answers and allAnswered flag
+              io.to(cleanCode).emit(SOCKET_EVENTS.QUIZ_UPDATE, {
+                ...result.result,
+                allAnswered,
+                audienceCount: onlineCount,
+                correctAnswers,
+              });
 
               // Send individual feedback to participant
               socket.emit(SOCKET_EVENTS.INTERACTION_RESULT, {
                 type: "quiz",
                 isCorrect: Boolean(result.isCorrect),
                 scoreAwarded: result.scoreAwarded ?? 0,
-                correctAnswers: result.correctAnswers ?? [],
+                correctAnswers,
                 selectedOptions: payload.selectedOptions ?? [],
                 slideId,
                 success: true,
               });
 
               // Update leaderboard
-              const session = await Session.findOne({ joinCode });
               if (session) {
                 const leaderboard = await interactionService.getLeaderboard(
                   session._id.toString(),
                 );
-                io.to(joinCode).emit(
+                io.to(cleanCode).emit(
                   SOCKET_EVENTS.LEADERBOARD_UPDATE,
                   leaderboard,
                 );
@@ -584,9 +1061,10 @@ function registerReactionEvents(socket: Socket, io: Server): void {
     SOCKET_EVENTS.REACTION_SEND,
     async ({ joinCode, slideId, emoji }: ReactionSendPayload) => {
       try {
+        const cleanCode = (joinCode || "").trim().toUpperCase();
         const session = await Session.findOne({
-          joinCode,
-          status: { $in: ["live"] },
+          joinCode: cleanCode,
+          status: { $in: ["live", "waiting", "paused"] },
         });
         if (!session) return;
 
@@ -610,7 +1088,7 @@ function registerReactionEvents(socket: Socket, io: Server): void {
           return;
         }
 
-        io.to(joinCode).emit(SOCKET_EVENTS.REACTION_UPDATE, {
+        io.to(cleanCode).emit(SOCKET_EVENTS.REACTION_UPDATE, {
           slideId,
           counts: result.counts,
           emoji, // which emoji was just sent (for animation)
@@ -629,8 +1107,9 @@ function registerQnAEvents(socket: Socket, io: Server): void {
     SOCKET_EVENTS.QNA_SUBMIT,
     async ({ joinCode, questionText }: QnaSubmitPayload) => {
       try {
+        const cleanCode = (joinCode || "").trim().toUpperCase();
         const session = await Session.findOne({
-          joinCode,
+          joinCode: cleanCode,
           status: { $ne: "ended" },
         });
         if (!session) {
@@ -666,14 +1145,20 @@ function registerQnAEvents(socket: Socket, io: Server): void {
           participantId: `${session._id}-${participant.displayName}`,
           displayName: participant.displayName,
           questionText: sanitized,
+          answerText: "",
         });
 
-        io.to(joinCode).emit(SOCKET_EVENTS.QNA_UPDATE, {
+        io.to(cleanCode).emit(SOCKET_EVENTS.QNA_UPDATE, {
           action: "new",
           question: {
             id: question._id.toString(),
             displayName: question.displayName,
             questionText: question.questionText,
+            answerText: question.answerText || "",
+            answeredBy: question.answeredBy || "",
+            answeredAt: question.answeredAt
+              ? question.answeredAt.toISOString()
+              : undefined,
             status: question.status,
             upvotes: question.upvotes,
             createdAt: question.createdAt.toISOString(),
@@ -687,44 +1172,74 @@ function registerQnAEvents(socket: Socket, io: Server): void {
 
   socket.on(
     SOCKET_EVENTS.QNA_MODERATE,
-    async ({ joinCode, questionId, action }: QnaModeratePayload) => {
+    async ({
+      joinCode,
+      questionId,
+      action,
+      answerText,
+    }: QnaModeratePayload) => {
       try {
+        const cleanCode = (joinCode || "").trim().toUpperCase();
         // Verify this socket is the host
-        const session = await Session.findOne({ joinCode });
+        const session = await Session.findOne({ joinCode: cleanCode });
         if (!session || session.hostSocketId !== socket.id) {
           socket.emit(SOCKET_EVENTS.INTERACTION_ERROR, {
-            message: "Only the presenter can moderate questions",
+            message: "Only the presenter can moderate or reply to questions",
           });
           return;
         }
 
-        const statusMap: Record<string, string> = {
-          pin: "pinned",
-          resolve: "resolved",
-          hide: "hidden",
-        };
+        let updateData: any = {};
 
-        const newStatus = statusMap[action];
-        if (!newStatus) {
-          socket.emit(SOCKET_EVENTS.INTERACTION_ERROR, {
-            message: "Invalid action",
-          });
-          return;
+        if (action === "reply" || action === "answer") {
+          const sanitizedAnswer = (answerText || "")
+            .trim()
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+          updateData = {
+            answerText: sanitizedAnswer,
+            answeredBy: "Presenter",
+            answeredAt: new Date(),
+            status: "resolved",
+          };
+        } else {
+          const statusMap: Record<string, string> = {
+            pin: "pinned",
+            resolve: "resolved",
+            hide: "hidden",
+          };
+
+          const newStatus = statusMap[action];
+          if (!newStatus) {
+            socket.emit(SOCKET_EVENTS.INTERACTION_ERROR, {
+              message: "Invalid action",
+            });
+            return;
+          }
+          updateData = { status: newStatus };
         }
 
         const question = await QnAQuestion.findByIdAndUpdate(
           questionId,
-          { status: newStatus },
+          updateData,
           { returnDocument: "after" },
         );
 
         if (question) {
-          io.to(joinCode).emit(SOCKET_EVENTS.QNA_UPDATE, {
-            action: "moderated",
+          io.to(cleanCode).emit(SOCKET_EVENTS.QNA_UPDATE, {
+            action:
+              action === "reply" || action === "answer"
+                ? "replied"
+                : "moderated",
             question: {
               id: question._id.toString(),
               displayName: question.displayName,
               questionText: question.questionText,
+              answerText: question.answerText || "",
+              answeredBy: question.answeredBy || "",
+              answeredAt: question.answeredAt
+                ? question.answeredAt.toISOString()
+                : undefined,
               status: question.status,
               upvotes: question.upvotes,
               createdAt: question.createdAt.toISOString(),
@@ -759,6 +1274,15 @@ function registerDisconnectHandler(socket: Socket, io: Server): void {
 
           io.to(session.joinCode).emit(SOCKET_EVENTS.AUDIENCE_UPDATED, {
             count: session.participants.filter((p) => p.isOnline).length,
+          });
+          io.to(session.joinCode).emit(SOCKET_EVENTS.PARTICIPANTS_UPDATE, {
+            participants: session.participants.map((p) => ({
+              socketId: p.socketId,
+              displayName: p.displayName,
+              isOnline: p.isOnline,
+              joinedAt: p.joinedAt,
+              score: p.score,
+            })),
           });
         }
       }
@@ -820,6 +1344,27 @@ async function broadcastSlideData(
   targetSocket?: Socket,
 ): Promise<void> {
   const safeConfig = { ...(slide.config || {}) };
+
+  // Ensure mediaUrl is properly resolved from slide or elements if not in config
+  if (!safeConfig.mediaUrl && slide.mediaUrl) {
+    safeConfig.mediaUrl = slide.mediaUrl;
+  } else if (!safeConfig.mediaUrl && slide.imageUrl) {
+    safeConfig.mediaUrl = slide.imageUrl;
+  } else if (!safeConfig.mediaUrl && Array.isArray(slide.elements)) {
+    const imgEl = slide.elements.find(
+      (el: any) =>
+        el.type === "image" && (el.properties?.src || el.properties?.url),
+    );
+    if (imgEl) {
+      safeConfig.mediaUrl = imgEl.properties?.src || imgEl.properties?.url;
+    }
+  }
+
+  // Ensure teaching paragraph or content is available
+  if (!safeConfig.paragraph && slide.content) {
+    safeConfig.paragraph = slide.content;
+  }
+
   // If slide is quiz, do not reveal isCorrect to audience on initial broadcast
   if (slide.type === "quiz" && Array.isArray(safeConfig.options)) {
     safeConfig.options = safeConfig.options.map((opt: any) => {
@@ -831,12 +1376,25 @@ async function broadcastSlideData(
     });
   }
 
+  // Resolve presentation theme
+  let presentationTheme = slide.theme || slide.config?.theme;
+  if (!presentationTheme && session.presentationId) {
+    const pres = await Presentation.findById(session.presentationId).select(
+      "theme",
+    );
+    if (pres && pres.theme) {
+      presentationTheme = pres.theme;
+    }
+  }
+
   const slideData = {
     slideId: slide._id.toString(),
     type: slide.type,
     title: slide.title,
     description: slide.description,
+    content: slide.content || safeConfig.paragraph,
     config: safeConfig,
+    theme: presentationTheme,
     responseLocked:
       session.responseLocked ||
       session.slideResponseLocks?.get(slide._id.toString()) ||

@@ -17,6 +17,7 @@ import {
   X,
   Sparkles,
   ArrowRight,
+  BookOpen,
 } from "lucide-react";
 
 interface AddSlideModalProps {
@@ -37,6 +38,12 @@ const slideTypes: {
     type: "title",
     label: "Title Slide",
     icon: <Type className="w-5 h-5" />,
+    category: "Content",
+  },
+  {
+    type: "teaching",
+    label: "Teaching & Paragraph",
+    icon: <BookOpen className="w-5 h-5" />,
     category: "Content",
   },
   {

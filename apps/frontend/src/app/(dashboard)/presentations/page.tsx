@@ -14,6 +14,13 @@ import {
   Trash2,
   Edit,
   Play,
+  Loader2,
+  Download,
+  CheckCircle2,
+  Sparkles,
+  Clock,
+  X,
+  ArrowRight,
 } from "lucide-react";
 
 export default function PresentationsPage() {
@@ -28,6 +35,15 @@ export default function PresentationsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isCreating, setIsCreating] = useState(false);
+
+  // Report generation state
+  const [generatingReportId, setGeneratingReportId] = useState<string | null>(
+    null,
+  );
+  const [generatingSeconds, setGeneratingSeconds] = useState(0);
+  const [generatedReportModal, setGeneratedReportModal] = useState<any | null>(
+    null,
+  );
 
   const fetchPresentations = async () => {
     setLoading(true);
@@ -101,6 +117,51 @@ export default function PresentationsPage() {
       alert("Failed to create presentation");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleGenerateReport = async (id: string, title: string) => {
+    setGeneratingReportId(id);
+    setGeneratingSeconds(0);
+
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      setGeneratingSeconds((Date.now() - startTime) / 1000);
+    }, 100);
+
+    try {
+      const token = getAccessToken();
+      if (!token) return;
+
+      const res = await fetch(`${API_URL}/api/reports/presentation/${id}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      clearInterval(interval);
+      const data = await res.json();
+
+      if (res.ok) {
+        const finalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        setGeneratedReportModal({
+          presentationTitle: title,
+          elapsed: finalTime,
+          report: data.report,
+          fileResource: data.fileResource,
+          fileUrl: data.fileUrl || data.report?.fileUrl,
+        });
+      } else {
+        alert(data.message || "Failed to generate presentation report");
+      }
+    } catch (error) {
+      clearInterval(interval);
+      console.error("Generate report error:", error);
+      alert("An error occurred while compiling the presentation report.");
+    } finally {
+      setGeneratingReportId(null);
     }
   };
 
@@ -196,7 +257,7 @@ export default function PresentationsPage() {
               key={p._id}
               className="group border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl overflow-hidden bg-white dark:bg-zinc-900/60 shadow-sm hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700 transition-all"
             >
-              <div className="h-40 bg-zinc-100 dark:bg-zinc-850 relative">
+              <div className="h-40 bg-zinc-100 dark:bg-zinc-850 relative group/cover">
                 {p.coverImage ? (
                   <img
                     src={p.coverImage}
@@ -208,7 +269,21 @@ export default function PresentationsPage() {
                     <FileText className="w-12 h-12 opacity-50" />
                   </div>
                 )}
-                <div className="absolute top-3 right-3 flex gap-2">
+
+                {/* Delete button on card cover for immediate visibility */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeletePresentation(p._id, p.title);
+                  }}
+                  className="absolute top-3 left-3 p-2 bg-black/70 hover:bg-red-600 text-zinc-200 hover:text-white rounded-xl backdrop-blur-md transition-all shadow-sm opacity-90 hover:opacity-100 cursor-pointer z-10"
+                  title="Delete Presentation"
+                  aria-label="Delete Presentation"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+
+                <div className="absolute top-3 right-3 flex gap-2 z-10">
                   <span
                     className={`text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm backdrop-blur-sm ${
                       p.status === "live"
@@ -232,11 +307,29 @@ export default function PresentationsPage() {
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 line-clamp-2 min-h-8">
                   {p.description || "No description provided."}
                 </p>
-                <div className="mt-5 pt-4 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+                <div className="mt-5 pt-4 border-t border-zinc-100 dark:border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <span className="text-xs text-zinc-400 dark:text-zinc-500">
                     Updated {new Date(p.updatedAt).toLocaleDateString()}
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      onClick={() => handleGenerateReport(p._id, p.title)}
+                      disabled={generatingReportId === p._id}
+                      className="px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border border-zinc-200 dark:border-zinc-700 disabled:opacity-60 cursor-pointer"
+                      title="Generate or View Session Intelligence Report"
+                    >
+                      {generatingReportId === p._id ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>{generatingSeconds.toFixed(1)}s</span>
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-300" />
+                          <span>Report</span>
+                        </>
+                      )}
+                    </button>
                     <Link
                       href={`/presentations/${p._id}/host`}
                       className="px-3 py-1.5 bg-zinc-950 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
@@ -247,15 +340,16 @@ export default function PresentationsPage() {
                     </Link>
                     <Link
                       href={`/presentations/${p._id}/edit`}
-                      className="p-2 text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+                      className="p-1.5 text-zinc-500 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
                       title="Edit"
                     >
                       <Edit className="w-4 h-4" />
                     </Link>
                     <button
                       onClick={() => handleDeletePresentation(p._id, p.title)}
-                      className="p-2 text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors cursor-pointer"
+                      className="p-1.5 text-red-500 hover:text-white hover:bg-red-600 bg-red-50 dark:bg-red-950/40 rounded-xl transition-colors cursor-pointer"
                       title="Delete Presentation"
+                      aria-label="Delete Presentation"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -264,6 +358,86 @@ export default function PresentationsPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Generated Report Result Modal */}
+      {generatedReportModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+          onClick={() => setGeneratedReportModal(null)}
+        >
+          <div
+            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative space-y-5 animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setGeneratedReportModal(null)}
+              className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-white rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 flex items-center justify-center mx-auto shadow-xs">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+
+            <div className="text-center space-y-1">
+              <h3 className="text-lg sm:text-xl font-bold text-zinc-950 dark:text-white">
+                Intelligence Report Ready
+              </h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                Generated in{" "}
+                <strong className="font-mono text-zinc-900 dark:text-zinc-100">
+                  {generatedReportModal.elapsed}s
+                </strong>{" "}
+                for &ldquo;{generatedReportModal.presentationTitle}&rdquo;
+              </p>
+            </div>
+
+            <div className="p-4 bg-zinc-50 dark:bg-zinc-850/60 border border-zinc-200 dark:border-zinc-750 rounded-2xl text-xs space-y-2 text-zinc-600 dark:text-zinc-300">
+              <div className="flex items-center justify-between font-medium">
+                <span>User-Wise Breakdown</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                  Included ✓
+                </span>
+              </div>
+              <div className="flex items-center justify-between font-medium">
+                <span>Knowledge Base Indexing</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                  Saved ✓
+                </span>
+              </div>
+              <div className="flex items-center justify-between font-medium">
+                <span>Format</span>
+                <span className="font-mono font-bold uppercase">
+                  PDF Document
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              {generatedReportModal.fileUrl && (
+                <a
+                  href={generatedReportModal.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3 bg-zinc-950 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-xs"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download PDF Report</span>
+                </a>
+              )}
+
+              <Link
+                href="/files"
+                className="w-full py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-900 dark:text-zinc-100 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all border border-zinc-200 dark:border-zinc-700"
+              >
+                <FileText className="w-4 h-4 text-zinc-500" />
+                <span>Open in Knowledge Base</span>
+              </Link>
+            </div>
+          </div>
         </div>
       )}
     </div>

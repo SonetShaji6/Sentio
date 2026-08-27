@@ -307,58 +307,129 @@ export default function FileLibraryPage() {
             {files.map((file) => (
               <div
                 key={file._id}
-                className="bg-white dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-zinc-800/80 rounded-3xl p-5 shadow-sm hover-lift hover:border-zinc-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between"
+                className="bg-white dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-zinc-800/80 rounded-3xl p-4 shadow-sm hover-lift hover:border-zinc-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between"
               >
                 <div>
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="p-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl">
-                      {getFileIcon(file.mimeType)}
+                  {/* File Visual Thumbnail */}
+                  <div
+                    onClick={() => setSelectedFileForPreview(file)}
+                    className="h-36 w-full rounded-2xl overflow-hidden relative cursor-pointer group/thumb border border-zinc-100 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 mb-3 flex items-center justify-center"
+                    title="Click to open preview window"
+                  >
+                    {file.mimeType?.startsWith("image/") ? (
+                      <img
+                        src={file.fileUrl}
+                        alt={file.originalName}
+                        className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
+                      />
+                    ) : file.mimeType?.includes("pdf") ? (
+                      <div className="w-full h-full p-4 flex flex-col justify-between bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-950">
+                        <div className="flex items-center justify-between">
+                          <span className="px-2 py-0.5 bg-red-500/10 text-red-500 border border-red-500/20 text-[9px] font-black rounded uppercase tracking-wider">
+                            PDF Document
+                          </span>
+                          <FileText className="w-4 h-4 text-red-500/80" />
+                        </div>
+                        <div className="space-y-1 my-auto">
+                          <div className="h-1.5 w-3/4 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                          <div className="h-1.5 w-full bg-zinc-200 dark:bg-zinc-800 rounded" />
+                          <div className="h-1.5 w-2/3 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                        </div>
+                        <div className="text-[10px] text-zinc-400 font-mono truncate">
+                          {file.originalName}
+                        </div>
+                      </div>
+                    ) : file.mimeType?.includes("presentation") ? (
+                      <div className="w-full h-full p-4 flex flex-col justify-between bg-gradient-to-b from-amber-50/40 to-zinc-100 dark:from-amber-950/20 dark:to-zinc-950">
+                        <div className="flex items-center justify-between">
+                          <span className="px-2 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px] font-black rounded uppercase tracking-wider">
+                            Presentation
+                          </span>
+                          <PresentationIcon className="w-4 h-4 text-amber-500/80" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-1 my-auto p-2 bg-zinc-200/50 dark:bg-zinc-800/50 rounded-lg">
+                          <div className="h-6 bg-zinc-300/60 dark:bg-zinc-700/60 rounded" />
+                          <div className="h-6 bg-zinc-300/60 dark:bg-zinc-700/60 rounded" />
+                        </div>
+                        <div className="text-[10px] text-zinc-400 font-mono truncate">
+                          {file.originalName}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-full h-full p-4 flex flex-col justify-between bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-950">
+                        <div className="flex items-center justify-between">
+                          <span className="px-2 py-0.5 bg-zinc-500/10 text-zinc-500 border border-zinc-500/20 text-[9px] font-black rounded uppercase tracking-wider">
+                            File Resource
+                          </span>
+                          <FileCode className="w-4 h-4 text-zinc-400" />
+                        </div>
+                        <div className="space-y-1 my-auto">
+                          <div className="h-1.5 w-4/5 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                          <div className="h-1.5 w-3/5 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                        </div>
+                        <div className="text-[10px] text-zinc-400 font-mono truncate">
+                          {file.originalName}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Hover Overlay */}
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-xs opacity-0 group-hover/thumb:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 text-white">
+                      <div className="p-2 bg-white/20 rounded-full">
+                        <Eye className="w-5 h-5" />
+                      </div>
+                      <span className="text-[11px] font-bold tracking-wide">
+                        Click to Preview Window
+                      </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 text-[10px] font-bold rounded-full uppercase">
+                    <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+                      <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md text-white text-[9px] font-bold rounded-full uppercase">
                         v{file.version}
                       </span>
-                      <ExtractionBadge status={file.extractionStatus} />
                     </div>
                   </div>
 
-                  <h4
-                    className="font-bold text-zinc-950 dark:text-white text-sm line-clamp-1"
-                    title={file.originalName}
-                  >
-                    {file.originalName}
-                  </h4>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <h4
+                      className="font-bold text-zinc-950 dark:text-white text-sm line-clamp-1 cursor-pointer hover:underline"
+                      title={file.originalName}
+                      onClick={() => setSelectedFileForPreview(file)}
+                    >
+                      {file.originalName}
+                    </h4>
+                    <ExtractionBadge status={file.extractionStatus} />
+                  </div>
 
-                  <p className="text-xs text-zinc-400 mt-1">
+                  <p className="text-xs text-zinc-400">
                     {(file.size / (1024 * 1024)).toFixed(2)} MB •{" "}
                     {new Date(file.createdAt).toLocaleDateString()}
                   </p>
 
                   {file.extractedMetadata?.wordCount ? (
-                    <div className="mt-3 text-xs text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 px-2.5 py-1 rounded-xl w-fit flex items-center gap-1.5 font-medium">
+                    <div className="mt-2 text-xs text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 px-2.5 py-0.5 rounded-xl w-fit flex items-center gap-1.5 font-medium">
                       <Sparkles className="w-3 h-3 text-amber-500" /> Extracted{" "}
                       {file.extractedMetadata.wordCount} words
                     </div>
                   ) : null}
                 </div>
 
-                <div className="pt-3.5 mt-3.5 border-t border-zinc-100 dark:border-zinc-800/80">
+                <div className="pt-3 mt-3 border-t border-zinc-100 dark:border-zinc-800/80">
                   {file.extractedText &&
                     (file.presentationId ? (
                       <Link
                         href={`/presentations/${file.presentationId}/edit`}
-                        className="w-full mb-3 px-3.5 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all border border-zinc-200 dark:border-zinc-700/80 active-press hover-lift"
+                        className="w-full mb-2.5 px-3.5 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all border border-zinc-200 dark:border-zinc-700/80 active-press hover-lift"
                         title="Presentation already exists. Click to open presentation in editor."
                       >
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>Presentation Already Exists</span>
+                        <span>Presentation Deck Ready</span>
                       </Link>
                     ) : (
                       <button
                         onClick={() => handleConvertToPresentation(file._id)}
                         disabled={convertingFileId === file._id}
-                        className="w-full mb-3 px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all disabled:opacity-50 active-press cursor-pointer"
+                        className="w-full mb-2.5 px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all disabled:opacity-50 active-press cursor-pointer"
                         title="Generate interactive Sentio presentation deck with AI"
                       >
                         {convertingFileId === file._id ? (
@@ -377,22 +448,20 @@ export default function FileLibraryPage() {
 
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-1.5">
-                      {file.extractedText && (
-                        <button
-                          onClick={() => setSelectedFileForPreview(file)}
-                          className="px-2.5 py-1 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg flex items-center gap-1 font-bold text-xs transition-colors"
-                          title="View Extracted Knowledge"
-                        >
-                          <Eye className="w-3.5 h-3.5" /> Text
-                        </button>
-                      )}
+                      <button
+                        onClick={() => setSelectedFileForPreview(file)}
+                        className="px-2.5 py-1 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg flex items-center gap-1 font-bold text-xs transition-colors cursor-pointer"
+                        title="Open Preview Window"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> Preview
+                      </button>
 
                       <button
                         onClick={() => {
                           setSelectedFileForVersion(file);
                           fetchVersionHistory(file._id);
                         }}
-                        className="px-2.5 py-1 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg flex items-center gap-1 font-bold text-xs transition-colors"
+                        className="px-2 py-1 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg flex items-center gap-1 font-bold text-xs transition-colors cursor-pointer"
                         title="Version History"
                       >
                         <History className="w-3.5 h-3.5" /> Versions
@@ -405,15 +474,15 @@ export default function FileLibraryPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-1.5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg font-medium flex items-center gap-1 transition-colors"
-                        title="Download"
+                        title="Download Original File"
                       >
                         <Download className="w-3.5 h-3.5" />
                       </a>
 
                       <button
                         onClick={() => handleDelete(file._id)}
-                        className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
-                        title="Delete"
+                        className="p-1.5 text-red-500 hover:text-white hover:bg-red-600 bg-red-50 dark:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
+                        title="Delete File"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -537,49 +606,125 @@ export default function FileLibraryPage() {
         </div>
       )}
 
-      {/* Extracted Text Preview Drawer */}
+      {/* Small Window File Preview Modal */}
       {selectedFileForPreview && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 w-full max-w-xl h-full p-6 flex flex-col shadow-2xl animate-scale-in">
-            <div className="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-800">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-500" />
-                <h3 className="font-bold text-base text-zinc-950 dark:text-white line-clamp-1">
-                  {selectedFileForPreview.originalName}
-                </h3>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm animate-fade-in"
+          onClick={() => setSelectedFileForPreview(null)}
+        >
+          <div
+            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl relative overflow-hidden animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Window Header */}
+            <div className="p-5 border-b border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 bg-zinc-200/60 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-xl flex-shrink-0">
+                  {getFileIcon(selectedFileForPreview.mimeType)}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-sm sm:text-base text-zinc-950 dark:text-white truncate">
+                    {selectedFileForPreview.originalName}
+                  </h3>
+                  <div className="flex items-center gap-2 text-xs text-zinc-400 mt-0.5">
+                    <span>v{selectedFileForPreview.version}</span>
+                    <span>•</span>
+                    <span>
+                      {(selectedFileForPreview.size / (1024 * 1024)).toFixed(2)}{" "}
+                      MB
+                    </span>
+                    <span>•</span>
+                    <span>
+                      {new Date(
+                        selectedFileForPreview.createdAt,
+                      ).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <button
-                onClick={() => setSelectedFileForPreview(null)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <a
+                  href={selectedFileForPreview.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors"
+                  title="Download File"
+                >
+                  <Download className="w-4 h-4" />
+                </a>
+                <button
+                  onClick={() => setSelectedFileForPreview(null)}
+                  className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            <div className="py-3 text-xs text-zinc-500 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
-              <div className="flex gap-4">
-                <span>
-                  Status:{" "}
-                  <strong className="text-zinc-800 dark:text-zinc-200">
-                    {selectedFileForPreview.extractionStatus}
-                  </strong>
-                </span>
-                <span>
-                  Word Count:{" "}
-                  <strong className="text-zinc-800 dark:text-zinc-200">
-                    {selectedFileForPreview.extractedMetadata?.wordCount || 0}
+            {/* Window Content */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {/* Visual Document / Image Preview */}
+              {selectedFileForPreview.mimeType?.startsWith("image/") ? (
+                <div className="rounded-2xl overflow-hidden bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center p-2 min-h-[300px]">
+                  <img
+                    src={selectedFileForPreview.fileUrl}
+                    alt={selectedFileForPreview.originalName}
+                    className="max-h-[450px] w-auto object-contain rounded-xl"
+                  />
+                </div>
+              ) : selectedFileForPreview.mimeType?.includes("pdf") ? (
+                <div className="rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-950">
+                  <iframe
+                    src={`${selectedFileForPreview.fileUrl}#toolbar=0`}
+                    className="w-full h-[440px] rounded-2xl"
+                    title="PDF Document Preview"
+                  />
+                </div>
+              ) : null}
+
+              {/* Extracted Text / Knowledge Base Reader */}
+              {selectedFileForPreview.extractedText && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Extracted Knowledge Base Text</span>
+                      <span className="font-normal text-zinc-400">
+                        (
+                        {selectedFileForPreview.extractedMetadata?.wordCount ||
+                          0}{" "}
+                        words)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl font-mono text-xs text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed border border-zinc-200/80 dark:border-zinc-800/80 max-h-60 overflow-y-auto">
+                    {selectedFileForPreview.extractedText}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Window Footer Actions */}
+            <div className="p-4 border-t border-zinc-200/80 dark:border-zinc-800/80 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/50">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-500">
+                  Category:{" "}
+                  <strong className="capitalize text-zinc-900 dark:text-zinc-100">
+                    {selectedFileForPreview.category || "Document"}
                   </strong>
                 </span>
               </div>
 
-              {selectedFileForPreview.extractedText &&
-                (selectedFileForPreview.presentationId ? (
+              <div className="flex items-center gap-2">
+                {selectedFileForPreview.presentationId ? (
                   <Link
                     href={`/presentations/${selectedFileForPreview.presentationId}/edit`}
-                    className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-zinc-200 dark:border-zinc-700/80 transition-all active-press"
+                    className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />{" "}
-                    View Deck
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Open Presentation Deck</span>
                   </Link>
                 ) : (
                   <button
@@ -588,17 +733,20 @@ export default function FileLibraryPage() {
                       setSelectedFileForPreview(null);
                       handleConvertToPresentation(id);
                     }}
-                    className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all active-press"
+                    className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Convert
-                    to Deck
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Convert to Presentation Deck</span>
                   </button>
-                ))}
-            </div>
+                )}
 
-            <div className="flex-1 overflow-y-auto mt-4 p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl font-mono text-xs text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed border border-zinc-200/60 dark:border-zinc-800/60">
-              {selectedFileForPreview.extractedText ||
-                "No text content was extracted from this file."}
+                <button
+                  onClick={() => setSelectedFileForPreview(null)}
+                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

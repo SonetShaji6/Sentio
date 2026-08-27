@@ -5,6 +5,9 @@ export interface IQnAQuestion extends Document {
   participantId: string;
   displayName: string;
   questionText: string;
+  answerText?: string;
+  answeredBy?: string;
+  answeredAt?: Date;
   status: "pending" | "pinned" | "resolved" | "hidden";
   upvotes: number;
   createdAt: Date;
@@ -26,6 +29,9 @@ const QnAQuestionSchema = new Schema<IQnAQuestion>(
       maxlength: 500,
       trim: true,
     },
+    answerText: { type: String, trim: true, default: "" },
+    answeredBy: { type: String, default: "" },
+    answeredAt: { type: Date },
     status: {
       type: String,
       enum: ["pending", "pinned", "resolved", "hidden"],

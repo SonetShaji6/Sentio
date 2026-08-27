@@ -35,7 +35,7 @@ export class PromptManager {
 
   static readonly FULL_DECK_SCHEMA = `
   Return a JSON array of slide objects representing a cohesive, complete presentation deck.
-  Supported types: "title", "information", "poll", "wordcloud", "quiz", "opentext", "thankyou".
+  Supported types: "title", "teaching", "information", "poll", "wordcloud", "quiz", "opentext", "thankyou".
   Example:
   [
     {
@@ -43,6 +43,17 @@ export class PromptManager {
       "title": "Presentation Title",
       "description": "Subtitle or summary",
       "config": { "kicker": "Keynote", "author": "Presenter" }
+    },
+    {
+      "type": "teaching",
+      "title": "Core Concept Explanation",
+      "description": "Short summary",
+      "config": {
+        "kicker": "Key Concept",
+        "paragraph": "In-depth teaching explanation breaking down the core mechanisms and foundational ideas.",
+        "bulletPoints": ["Fundamental rule 1", "Fundamental rule 2"],
+        "takeaway": "Key takeaway definition"
+      }
     },
     {
       "type": "information",

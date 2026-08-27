@@ -5,6 +5,7 @@ export type InteractionType =
 
 export type SlideType =
   | "title"
+  | "teaching"
   | "information"
   | "question"
   | "poll"

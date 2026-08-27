@@ -5,6 +5,7 @@ export interface IParticipant {
   displayName: string;
   joinedAt: Date;
   isOnline: boolean;
+  isApproved?: boolean; // For presenter approval
   score: number; // For leaderboard
   responses: any[]; // Legacy — keep for backward compat
 }
@@ -19,6 +20,8 @@ export interface ISession extends Document {
   joinCode: string;
   hostSocketId?: string;
   participants: IParticipant[];
+  requireApproval?: boolean;
+  bannedParticipants?: string[];
   responseLocked: boolean;
   slideResponseLocks: Map<string, boolean>;
   reactionCounts: any; // { slideId: { emoji: count } }
@@ -34,6 +37,7 @@ const ParticipantSchema = new Schema<IParticipant>(
     displayName: { type: String, required: true },
     joinedAt: { type: Date, default: Date.now },
     isOnline: { type: Boolean, default: true },
+    isApproved: { type: Boolean, default: false },
     score: { type: Number, default: 0 },
     responses: { type: Schema.Types.Mixed, default: [] },
   },
@@ -63,6 +67,8 @@ const SessionSchema = new Schema<ISession>(
     joinCode: { type: String, required: true, unique: true, index: true },
     hostSocketId: { type: String },
     participants: [ParticipantSchema],
+    requireApproval: { type: Boolean, default: true },
+    bannedParticipants: { type: [String], default: [] },
     responseLocked: { type: Boolean, default: false },
     slideResponseLocks: {
       type: Map,
