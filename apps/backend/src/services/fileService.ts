@@ -53,6 +53,16 @@ export function sanitizeFileName(name: string): string {
   return name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
 }
 
+export function formatExtractedPreviewText(
+  text: string,
+  maxLength: number = 500,
+): string {
+  if (!text) return "";
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (cleaned.length <= maxLength) return cleaned;
+  return cleaned.slice(0, maxLength) + "...";
+}
+
 export async function uploadAndProcessFile(
   ownerId: string,
   file: Express.Multer.File,
