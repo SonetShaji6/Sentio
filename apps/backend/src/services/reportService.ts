@@ -60,6 +60,16 @@ export async function generateReportData(sessionId: string, userId: string) {
   };
 }
 
+export function formatReportDuration(
+  startTime: Date | string,
+  endTime?: Date | string,
+): string {
+  const start = new Date(startTime).getTime();
+  const end = endTime ? new Date(endTime).getTime() : Date.now();
+  const diffMinutes = Math.max(1, Math.round((end - start) / 60000));
+  return `${diffMinutes} min`;
+}
+
 export function buildPDFReport(reportData: any): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     try {
