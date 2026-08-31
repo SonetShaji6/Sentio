@@ -222,4 +222,35 @@ router.delete(
   },
 );
 
+// ── Export Raw Session Interaction Data ──
+router.get(
+  "/:id/export-data",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const report = await Report.findOne({
+        _id: req.params.id,
+        user: req.user.id,
+      });
+      if (!report) {
+        res.status(404).json({ message: "Report not found" });
+        return;
+      }
+      const rawData = await reportService.generateReportData(
+        report.sessionId.toString(),
+        req.user.id,
+      );
+      res.json({
+        reportId: report._id,
+        title: report.title,
+        exportedAt: new Date().toISOString(),
+        data: rawData,
+      });
+    } catch (error) {
+      console.error("Export report data error:", error);
+      res.status(500).json({ message: "Failed to export report data" });
+    }
+  },
+);
+
 export default router;
