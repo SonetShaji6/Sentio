@@ -28,6 +28,14 @@ const OrganizationSchema = new Schema<IOrganization>(
 );
 
 OrganizationSchema.index({ owner: 1 });
+OrganizationSchema.index({ slug: 1, name: "text" });
+
+OrganizationSchema.statics.findBySlugOrId = function (identifier: string) {
+  if (mongoose.Types.ObjectId.isValid(identifier)) {
+    return this.findById(identifier);
+  }
+  return this.findOne({ slug: identifier.toLowerCase() });
+};
 
 export default mongoose.model<IOrganization>(
   "Organization",
