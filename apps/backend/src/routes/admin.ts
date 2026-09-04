@@ -74,6 +74,8 @@ router.get("/dashboard", async (_req: any, res: any): Promise<void> => {
             : 0,
       },
       systemHealth: "OPERATIONAL",
+      uptimeSeconds: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     console.error("Admin dashboard stats error:", error);
