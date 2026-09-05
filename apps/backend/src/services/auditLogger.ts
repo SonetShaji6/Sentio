@@ -1,8 +1,24 @@
 import AuditLog from "../models/AuditLog";
 
+export const AUDIT_ACTIONS = {
+  USER_LOGIN: "USER_LOGIN",
+  USER_LOGOUT: "USER_LOGOUT",
+  USER_REGISTER: "USER_REGISTER",
+  PASSWORD_RESET: "PASSWORD_RESET",
+  PRESENTATION_CREATE: "PRESENTATION_CREATE",
+  PRESENTATION_DELETE: "PRESENTATION_DELETE",
+  SESSION_START: "SESSION_START",
+  SESSION_END: "SESSION_END",
+  REPORT_GENERATE: "REPORT_GENERATE",
+  ADMIN_ACTION: "ADMIN_ACTION",
+} as const;
+
+export type AuditActionType =
+  (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS] | string;
+
 export interface AuditLogOptions {
   user: string;
-  action: string;
+  action: AuditActionType;
   target?: string;
   details?: any;
   ip?: string;
