@@ -59,6 +59,13 @@ export async function createNotification(
   return notification;
 }
 
+export async function markAllAsRead(userId: string): Promise<void> {
+  await Notification.updateMany(
+    { user: userId, isRead: false },
+    { isRead: true },
+  );
+}
+
 export async function clearReadNotifications(userId: string) {
   await Notification.deleteMany({ user: userId, isRead: true });
 }
