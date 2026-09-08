@@ -84,6 +84,12 @@ body {
   color: var(--color-text-primary);
 }
 
+/* ── Accessible Focus Visible States ── */
+:focus-visible {
+  outline: 2px solid var(--color-black);
+  outline-offset: 2px;
+}
+
 /* ── Form Utilities ── */
 .input-field {
   display: block;
