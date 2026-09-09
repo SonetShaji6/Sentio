@@ -177,7 +177,7 @@ export async function extractTextFromDocument(
 
       try {
         const ai = new GoogleGenAI({ apiKey: geminiApiKey });
-        const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+        const model = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
 
         // Normalise MIME type
         let cleanMime = mimeType;

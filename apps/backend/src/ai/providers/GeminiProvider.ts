@@ -18,7 +18,7 @@ export class GeminiProvider implements IAIProvider {
   }
 
   private getModel(): string {
-    return process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+    return process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
   }
 
   private cleanResponse(text: string): string {
