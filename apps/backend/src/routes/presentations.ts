@@ -2,6 +2,8 @@ import { Router, Request, Response } from "express";
 import { requireAuth } from "../middleware/auth";
 import Presentation from "../models/Presentation";
 import Slide from "../models/Slide";
+import Session from "../models/Session";
+import Report from "../models/Report";
 import OrganizationMember from "../models/OrganizationMember";
 import { uploadFileToAzure, deleteFileFromAzure } from "../services/azure";
 import multer from "multer";
@@ -184,9 +186,76 @@ router.get("/", requireAuth, async (req: any, res: any): Promise<void> => {
       .limit(parseInt(limit as string));
 
     const total = await Presentation.countDocuments(query);
+    const presIds = presentations.map((p) => p._id);
+
+    // Fetch slide preview info (first 8 slides per presentation)
+    const slides = await Slide.find({
+      presentationId: { $in: presIds },
+    })
+      .select("_id presentationId type order title isHidden themeOverrides")
+      .sort({ order: 1 });
+
+    // Fetch session stats for each presentation
+    const sessions = await Session.find({
+      presentationId: { $in: presIds },
+    })
+      .select(
+        "_id presentationId status joinCode participants startedAt endedAt createdAt",
+      )
+      .sort({ createdAt: -1 });
+
+    const slidesByPresId: Record<string, any[]> = {};
+    for (const slide of slides) {
+      const pid = slide.presentationId.toString();
+      if (!slidesByPresId[pid]) slidesByPresId[pid] = [];
+      slidesByPresId[pid].push(slide);
+    }
+
+    const sessionsByPresId: Record<string, any[]> = {};
+    for (const sess of sessions) {
+      const pid = sess.presentationId ? sess.presentationId.toString() : "";
+      if (!pid) continue;
+      if (!sessionsByPresId[pid]) sessionsByPresId[pid] = [];
+      sessionsByPresId[pid].push(sess);
+    }
+
+    const enrichedPresentations = presentations.map((p) => {
+      const pObj = p.toObject();
+      const pSlides = slidesByPresId[p._id.toString()] || [];
+      const pSessions = sessionsByPresId[p._id.toString()] || [];
+      const liveSession = pSessions.find((s) => s.status === "live");
+      const totalParticipants = pSessions.reduce(
+        (acc, s) => acc + (s.participants?.length || 0),
+        0,
+      );
+
+      return {
+        ...pObj,
+        slideCount: pSlides.length,
+        previewSlides: pSlides.slice(0, 8),
+        sessionsCount: pSessions.length,
+        totalParticipants,
+        liveSession: liveSession
+          ? {
+              _id: liveSession._id,
+              joinCode: liveSession.joinCode,
+              participantsCount: liveSession.participants?.length || 0,
+            }
+          : null,
+        recentSession: pSessions[0]
+          ? {
+              _id: pSessions[0]._id,
+              joinCode: pSessions[0].joinCode,
+              status: pSessions[0].status,
+              createdAt: pSessions[0].createdAt,
+              participantsCount: pSessions[0].participants?.length || 0,
+            }
+          : null,
+      };
+    });
 
     res.json({
-      presentations,
+      presentations: enrichedPresentations,
       pagination: {
         total,
         page: parseInt(page as string),
@@ -198,6 +267,188 @@ router.get("/", requireAuth, async (req: any, res: any): Promise<void> => {
     res.status(500).json({ error: "Failed to list presentations" });
   }
 });
+
+// ── 2b. Get Presentation Activity Timeline ──
+router.get(
+  "/:id/timeline",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const presentation = await getAccessiblePresentation(
+        req.params.id,
+        req.user!.id,
+      );
+      if (!presentation) {
+        res.status(404).json({ error: "Presentation not found" });
+        return;
+      }
+
+      const [slides, sessions, reports] = await Promise.all([
+        Slide.find({ presentationId: presentation._id })
+          .select("_id title type order createdAt updatedAt")
+          .sort({ order: 1 }),
+        Session.find({ presentationId: presentation._id })
+          .select(
+            "_id status joinCode participants startedAt endedAt createdAt updatedAt",
+          )
+          .sort({ createdAt: -1 }),
+        Report.find({ presentationId: presentation._id })
+          .select("_id title type status fileFormat fileUrl createdAt")
+          .sort({ createdAt: -1 }),
+      ]);
+
+      const events: any[] = [];
+
+      // 1. Deck Created Event
+      events.push({
+        id: `created-${presentation._id}`,
+        type: "created",
+        title: "Presentation Created",
+        description: `Deck initialized with title "${presentation.title}"`,
+        timestamp: presentation.createdAt,
+        badge: "Created",
+        meta: {
+          category: presentation.category,
+          visibility: presentation.visibility,
+        },
+      });
+
+      // 2. Version Snapshots
+      if (
+        presentation.versionHistory &&
+        presentation.versionHistory.length > 0
+      ) {
+        presentation.versionHistory.forEach((v: any, index: number) => {
+          events.push({
+            id: `version-${v.versionId || index}`,
+            type: "version",
+            title: `Milestone Snapshot: ${v.title || "Version Snapshot"}`,
+            description: v.changeReason || "Milestone version captured",
+            timestamp: v.createdAt || presentation.updatedAt,
+            badge: "Version Snapshot",
+            meta: {
+              versionId: v.versionId,
+              slidesCount: v.contentSnapshot?.slides?.length || 0,
+            },
+          });
+        });
+      }
+
+      // 3. Live Sessions Hosted
+      sessions.forEach((s: any) => {
+        const durationMin =
+          s.startedAt && s.endedAt
+            ? Math.max(
+                1,
+                Math.round(
+                  (new Date(s.endedAt).getTime() -
+                    new Date(s.startedAt).getTime()) /
+                    60000,
+                ),
+              )
+            : null;
+
+        events.push({
+          id: `session-${s._id}`,
+          type: "session",
+          title:
+            s.status === "live"
+              ? "Live Session in Progress"
+              : s.status === "ended"
+                ? "Live Presentation Concluded"
+                : "Presentation Session Hosted",
+          description: `Room: ${s.joinCode} • ${s.participants?.length || 0} participants joined`,
+          timestamp: s.startedAt || s.createdAt,
+          badge: s.status === "live" ? "Live Now" : "Session Run",
+          status: s.status,
+          meta: {
+            sessionId: s._id,
+            joinCode: s.joinCode,
+            participantsCount: s.participants?.length || 0,
+            durationMin,
+            status: s.status,
+          },
+        });
+      });
+
+      // 4. Intelligence Reports
+      reports.forEach((r: any) => {
+        events.push({
+          id: `report-${r._id}`,
+          type: "report",
+          title: `Session Report Compiled (${r.fileFormat?.toUpperCase() || "PDF"})`,
+          description:
+            r.title || "Session analytics & engagement summary generated",
+          timestamp: r.createdAt,
+          badge: "Report",
+          status: r.status,
+          meta: {
+            reportId: r._id,
+            fileUrl: r.fileUrl,
+            fileFormat: r.fileFormat,
+            status: r.status,
+          },
+        });
+      });
+
+      // 5. Recent Modification Event
+      if (
+        new Date(presentation.updatedAt).getTime() -
+          new Date(presentation.createdAt).getTime() >
+        120000
+      ) {
+        events.push({
+          id: `updated-${presentation._id}`,
+          type: "updated",
+          title: "Content & Slides Updated",
+          description: `Last modified and saved with latest slide configurations`,
+          timestamp: presentation.updatedAt,
+          badge: "Saved",
+        });
+      }
+
+      // Sort newest first
+      events.sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      );
+
+      res.json({
+        presentation: {
+          _id: presentation._id,
+          title: presentation.title,
+          description: presentation.description,
+          status: presentation.status,
+          category: presentation.category,
+          visibility: presentation.visibility,
+          coverImage: presentation.coverImage,
+          createdAt: presentation.createdAt,
+          updatedAt: presentation.updatedAt,
+        },
+        stats: {
+          slidesCount: slides.length,
+          sessionsCount: sessions.length,
+          participantsCount: sessions.reduce(
+            (acc, s) => acc + (s.participants?.length || 0),
+            0,
+          ),
+          reportsCount: reports.length,
+          versionsCount: presentation.versionHistory?.length || 0,
+        },
+        slides: slides.map((s) => ({
+          _id: s._id,
+          order: s.order,
+          type: s.type,
+          title: s.title,
+        })),
+        events,
+      });
+    } catch (error) {
+      console.error("Get presentation timeline error:", error);
+      res.status(500).json({ error: "Failed to get presentation timeline" });
+    }
+  },
+);
 
 // ── 3. Get Single Presentation ──
 router.get("/:id", requireAuth, async (req: any, res: any): Promise<void> => {
