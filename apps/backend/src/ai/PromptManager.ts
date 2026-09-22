@@ -134,6 +134,41 @@ export class PromptManager {
   }
   `;
 
+  static readonly LIVE_RECOMMENDATION_SCHEMA = `
+  Return a valid JSON object matching this structure:
+  {
+    "verdict": "High Mastery" | "Knowledge Gap Detected" | "Low Participation" | "Mixed Sentiment" | "Good Pacing",
+    "sentiment": "Engaged" | "Confused" | "Excited" | "Hesitant" | "Passive",
+    "summary": "1-2 sentence real-time diagnostic of audience comprehension and engagement",
+    "pacingAdvice": "Clear advice on whether to slow down, explain more, speed up, or open floor for questions",
+    "accuracyAnalysis": "Specific insight on correctness, e.g. '62% picked Option B due to confusion between X and Y'",
+    "questionImprovements": [
+      {
+        "original": "Current question or topic",
+        "improved": "Suggested clearer rephrasing or follow-up question",
+        "reason": "Why this clarifies misconceptions"
+      }
+    ],
+    "suggestedSlides": [
+      {
+        "title": "Title of suggested new slide",
+        "type": "poll" | "quiz" | "teaching" | "wordcloud" | "opentext",
+        "description": "Brief description of why to insert this slide now",
+        "config": {
+          "question": "Question text for poll/quiz",
+          "options": ["Option A", "Option B", "Option C", "Option D"],
+          "correctAnswers": [0],
+          "explanation": "Brief teaching point"
+        }
+      }
+    ],
+    "slideUpdates": {
+      "suggestedTitle": "Optional refined title for current slide",
+      "clarificationNote": "Key bullet point or verbal hint to mention out loud right now"
+    }
+  }
+  `;
+
   // ── SYSTEM PROMPTS ──
 
   static getQuizPrompt(
@@ -224,5 +259,33 @@ export class PromptManager {
     ${presentationContext}
     
     Provide concise, actionable, and inspiring advice on structuring slides, crafting interactive polls, optimizing question wording, or timing presentations.`;
+  }
+
+  static getLiveRecommendationPrompt(
+    slide: any,
+    results: any,
+    audienceCount: number,
+    deckTitle: string,
+    calculatedMetrics?: any,
+  ): string {
+    return `You are Sentio AI Live Presentation Coach. You are advising a presenter in real-time during an active presentation as the audience interacts.
+    
+    Deck Title: "${deckTitle || "Interactive Presentation"}"
+    Current Slide:
+    - Type: ${slide?.type || "content"}
+    - Title: "${slide?.title || "Untitled"}"
+    - Description: "${slide?.description || ""}"
+    - Config: ${JSON.stringify(slide?.config || {})}
+    
+    Live Audience Activity:
+    - Online Participants: ${audienceCount}
+    - Interaction Submissions & Results: ${JSON.stringify(results || {})}
+    - Real-time Calculations: ${JSON.stringify(calculatedMetrics || {})}
+    
+    Your task:
+    1. Assess Audience Correctness & Participation: Are participants answering correctly? What is the main distractor or misunderstanding? Is everyone engaging?
+    2. Give Actionable Real-Time Advice: Pacing (slow down/continue), spoken hint/clarification to give out loud right now.
+    3. Suggest Improvements to Questions: How to rephrase or clarify if confusing.
+    4. Propose 1-2 Instant Follow-up Slides to Insert: (e.g. quick follow-up poll, clarification quiz, or recap teaching slide) that the presenter can click to add into the deck immediately.`;
   }
 }
