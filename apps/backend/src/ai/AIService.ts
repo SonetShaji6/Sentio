@@ -223,6 +223,33 @@ class AIService {
     const response = await this.executeText(message, systemPrompt);
     return response.content;
   }
+
+  /**
+   * Live real-time recommendation for an active presentation slide and responses.
+   */
+  async generateLiveRecommendation(
+    slide: any,
+    results: any,
+    audienceCount: number,
+    deckTitle: string,
+    calculatedMetrics?: any,
+  ) {
+    const prompt = PromptManager.getLiveRecommendationPrompt(
+      slide,
+      results,
+      audienceCount,
+      deckTitle,
+      calculatedMetrics,
+    );
+
+    const response = await this.executeStructured<any>(
+      prompt,
+      PromptManager.LIVE_RECOMMENDATION_SCHEMA,
+      "You are Sentio AI, the world's best live audience engagement and presentation coach. Provide crisp, actionable live insights and high-value slide suggestions.",
+    );
+
+    return response.content;
+  }
 }
 
 export const aiService = new AIService();
