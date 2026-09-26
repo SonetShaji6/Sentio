@@ -133,4 +133,45 @@ router.get(
   },
 );
 
+// ── Live Real-time AI Recommendations ──
+router.post(
+  "/live-recommendation",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const {
+        sessionId,
+        presentationId,
+        currentSlide,
+        results,
+        audienceCount,
+        deckTitle,
+      } = req.body;
+
+      if (!currentSlide) {
+        res.status(400).json({ message: "currentSlide is required" });
+        return;
+      }
+
+      const recommendation =
+        await recommendationService.generateLiveRecommendation({
+          sessionId,
+          presentationId,
+          currentSlide,
+          results,
+          audienceCount: Number(audienceCount) || 0,
+          deckTitle: deckTitle || "Live Presentation",
+        });
+
+      res.json(recommendation);
+    } catch (error: any) {
+      console.error("Live AI recommendation error:", error);
+      res.status(500).json({
+        message: "Failed to generate live recommendation",
+        error: error?.message,
+      });
+    }
+  },
+);
+
 export default router;
