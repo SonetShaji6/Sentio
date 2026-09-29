@@ -35,6 +35,7 @@ export function KeyboardShortcutsModal({
     { key: "F", desc: "Toggle Fullscreen" },
     { key: "L", desc: "Lock / Unlock Audience Responses" },
     { key: "R", desc: "Toggle Live Results Panel" },
+    { key: "C", desc: "Toggle Live AI Coach Panel" },
     { key: "Q", desc: "Toggle Q&A Panel" },
     { key: "M", desc: "Toggle Join QR Code Modal" },
     { key: "?", desc: "Show / Hide Keyboard Shortcuts" },
