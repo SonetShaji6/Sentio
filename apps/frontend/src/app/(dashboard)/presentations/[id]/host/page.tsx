@@ -43,6 +43,7 @@ import Link from "next/link";
 import { SlideEditor } from "@/components/builder/SlideEditor";
 import { PresenterResults } from "@/components/presenter/PresenterResults";
 import { ModerationPanel } from "@/components/presenter/ModerationPanel";
+import { LiveAICoachPanel } from "@/components/presenter/LiveAICoachPanel";
 import { QnAPanel } from "@/components/interactions/QnAPanel";
 import { KeyboardShortcutsModal } from "@/components/builder/KeyboardShortcutsModal";
 
@@ -80,6 +81,10 @@ export default function HostPresenterView() {
   // UI State
   const [showQnA, setShowQnA] = useState(false);
   const [showResults, setShowResults] = useState(true);
+  const [activePresenterTab, setActivePresenterTab] = useState<
+    "results" | "aicoach" | "qna"
+  >("aicoach");
+  const [isPresenterSidebarOpen, setIsPresenterSidebarOpen] = useState(true);
   const [showQRModal, setShowQRModal] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -558,6 +563,82 @@ export default function HostPresenterView() {
     }
   };
 
+  const handleInsertSlideFromAI = async (
+    suggestedSlide: any,
+    presentImmediately = false,
+  ) => {
+    const token = getAccessToken();
+    if (!token) return;
+
+    try {
+      const newOrder = currentSlideIndex + 1;
+      const res = await fetch(
+        `${API_URL}/api/presentations/${presentationId}/slides`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            type: suggestedSlide.type || "poll",
+            order: newOrder,
+            title: suggestedSlide.title || "Interactive Slide",
+            description: suggestedSlide.description || "",
+            config: suggestedSlide.config || {},
+          }),
+        },
+      );
+
+      if (res.ok) {
+        const freshSlidesRes = await fetch(
+          `${API_URL}/api/presentations/${presentationId}/slides`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        if (freshSlidesRes.ok) {
+          const freshSlides = await freshSlidesRes.json();
+          setSlides(freshSlides);
+        }
+
+        if (presentImmediately) {
+          changeSlide(newOrder);
+        }
+      }
+    } catch (err) {
+      console.error("Insert slide from AI coach error:", err);
+    }
+  };
+
+  const handleUpdateSlideFromAI = async (slideId: string, updates: any) => {
+    const token = getAccessToken();
+    if (!token) return;
+
+    try {
+      const res = await fetch(
+        `${API_URL}/api/presentations/${presentationId}/slides/${slideId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(updates),
+        },
+      );
+
+      if (res.ok) {
+        const updated = await res.json();
+        setSlides((prev) =>
+          prev.map((s) => (s._id === slideId ? { ...s, ...updated } : s)),
+        );
+      }
+    } catch (err) {
+      console.error("Update slide from AI coach error:", err);
+    }
+  };
+
   const handleModerateOpenText = (
     interactionId: string,
     action: "approve" | "hide" | "highlight",
@@ -660,14 +741,30 @@ export default function HostPresenterView() {
       // Toggle Results (R)
       if (e.key.toLowerCase() === "r") {
         e.preventDefault();
-        setShowResults((prev) => !prev);
+        setActivePresenterTab("results");
+        setIsPresenterSidebarOpen((prev) =>
+          activePresenterTab === "results" ? !prev : true,
+        );
+        return;
+      }
+
+      // Toggle AI Coach (C)
+      if (e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        setActivePresenterTab("aicoach");
+        setIsPresenterSidebarOpen((prev) =>
+          activePresenterTab === "aicoach" ? !prev : true,
+        );
         return;
       }
 
       // Toggle Q&A (Q)
       if (e.key.toLowerCase() === "q") {
         e.preventDefault();
-        setShowQnA((prev) => !prev);
+        setActivePresenterTab("qna");
+        setIsPresenterSidebarOpen((prev) =>
+          activePresenterTab === "qna" ? !prev : true,
+        );
         return;
       }
     };
@@ -905,79 +1002,132 @@ export default function HostPresenterView() {
           )}
         </div>
 
-        {/* Presenter Sidebar (Results & Moderation) */}
-        {sessionStatus === "live" && showResults && isInteractiveSlide && (
-          <div className="w-96 bg-zinc-950 border-l border-zinc-800 flex flex-col shrink-0">
-            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-              <h3 className="font-bold text-zinc-200 flex items-center gap-2 text-sm">
-                <BarChart2 className="w-4 h-4 text-white" />
-                Live Results
-              </h3>
-              <div className="flex items-center gap-2">
+        {/* Presenter Assistant Sidebar (Results, AI Coach, Q&A) */}
+        {sessionStatus === "live" && isPresenterSidebarOpen && (
+          <div className="w-[420px] max-w-[90vw] bg-zinc-950 border-l border-zinc-800 flex flex-col shrink-0 shadow-2xl z-20">
+            {/* Unified Sidebar Tab Bar */}
+            <div className="p-2.5 px-3 border-b border-zinc-800/80 bg-zinc-900/70 flex items-center justify-between gap-1">
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                {isInteractiveSlide && (
+                  <button
+                    onClick={() => setActivePresenterTab("results")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      activePresenterTab === "results"
+                        ? "bg-zinc-800 text-white shadow-xs"
+                        : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                    }`}
+                  >
+                    <BarChart2 className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Live Results</span>
+                  </button>
+                )}
+
                 <button
-                  onClick={toggleResponseLock}
-                  className={`p-2 rounded-xl transition-colors ${
-                    responseLocked
-                      ? "bg-amber-950/80 text-amber-400 border border-amber-800/60"
-                      : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-white border border-zinc-800"
+                  onClick={() => setActivePresenterTab("aicoach")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer relative ${
+                    activePresenterTab === "aicoach"
+                      ? "bg-gradient-to-r from-indigo-600/30 to-purple-600/30 text-white border border-indigo-500/40 shadow-xs"
+                      : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
                   }`}
-                  title={responseLocked ? "Unlock Responses" : "Lock Responses"}
                 >
-                  {responseLocked ? (
-                    <Lock className="w-4 h-4" />
-                  ) : (
-                    <Unlock className="w-4 h-4" />
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>AI Coach</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                </button>
+
+                <button
+                  onClick={() => setActivePresenterTab("qna")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer relative ${
+                    activePresenterTab === "qna"
+                      ? "bg-zinc-800 text-white shadow-xs"
+                      : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                  }`}
+                >
+                  <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Q&A</span>
+                  {pendingQnA > 0 && (
+                    <span className="w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] flex items-center justify-center font-bold">
+                      {pendingQnA}
+                    </span>
                   )}
                 </button>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                {activePresenterTab === "results" && isInteractiveSlide && (
+                  <button
+                    onClick={toggleResponseLock}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      responseLocked
+                        ? "bg-amber-950/80 text-amber-400 border border-amber-800/60"
+                        : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
+                    }`}
+                    title={
+                      responseLocked ? "Unlock Responses" : "Lock Responses"
+                    }
+                  >
+                    {responseLocked ? (
+                      <Lock className="w-3.5 h-3.5" />
+                    ) : (
+                      <Unlock className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                )}
+
                 <button
-                  onClick={() => setShowResults(false)}
-                  className="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-zinc-900"
+                  onClick={() => setIsPresenterSidebarOpen(false)}
+                  className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors"
+                  title="Close sidebar"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
-              <PresenterResults
-                slideType={currentSlide.type}
-                results={results}
-                leaderboard={leaderboard}
-                participantCount={audienceCount}
-              />
+            {/* Tab Contents */}
+            <div className="flex-1 overflow-hidden flex flex-col">
+              {activePresenterTab === "results" && isInteractiveSlide && (
+                <div className="flex-1 overflow-y-auto">
+                  <PresenterResults
+                    slideType={currentSlide.type}
+                    results={results}
+                    leaderboard={leaderboard}
+                    participantCount={audienceCount}
+                  />
 
-              {currentSlide.type === "opentext" && results?.responses && (
-                <ModerationPanel
-                  responses={results.responses}
-                  onModerate={handleModerateOpenText}
+                  {currentSlide.type === "opentext" && results?.responses && (
+                    <ModerationPanel
+                      responses={results.responses}
+                      onModerate={handleModerateOpenText}
+                    />
+                  )}
+                </div>
+              )}
+
+              {activePresenterTab === "aicoach" && (
+                <LiveAICoachPanel
+                  presentationId={presentationId}
+                  sessionId={currentSession?._id}
+                  deckTitle={presentation?.title}
+                  currentSlide={currentSlide}
+                  currentSlideIndex={currentSlideIndex}
+                  results={results}
+                  audienceCount={audienceCount}
+                  onInsertSlide={handleInsertSlideFromAI}
+                  onUpdateSlide={handleUpdateSlideFromAI}
                 />
               )}
-            </div>
-          </div>
-        )}
 
-        {/* Q&A Sidebar */}
-        {sessionStatus === "live" && showQnA && (
-          <div className="w-96 bg-zinc-950 border-l border-zinc-800 flex flex-col shrink-0">
-            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-              <h3 className="font-bold text-zinc-200 flex items-center gap-2 text-sm">
-                <MessageCircle className="w-4 h-4 text-white" />
-                Q&A
-              </h3>
-              <button
-                onClick={() => setShowQnA(false)}
-                className="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-zinc-900"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <QnAPanel
-                questions={qnaQuestions}
-                onSubmit={() => {}}
-                isPresenter={true}
-                onModerate={handleModerateQnA}
-              />
+              {activePresenterTab === "qna" && (
+                <div className="flex-1 overflow-hidden">
+                  <QnAPanel
+                    questions={qnaQuestions}
+                    onSubmit={() => {}}
+                    isPresenter={true}
+                    onModerate={handleModerateQnA}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -985,30 +1135,76 @@ export default function HostPresenterView() {
 
       {/* Presenter Controls (Bottom Bar) */}
       <div className="h-20 flex items-center justify-between px-8 bg-zinc-950 border-t border-zinc-800 shrink-0">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {sessionStatus === "live" && (
             <>
-              {!showResults && isInteractiveSlide && (
+              {isInteractiveSlide && (
                 <button
-                  onClick={() => setShowResults(true)}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs font-semibold transition-colors text-zinc-300 hover:text-white"
+                  onClick={() => {
+                    setActivePresenterTab("results");
+                    setIsPresenterSidebarOpen((prev) =>
+                      isPresenterSidebarOpen && activePresenterTab === "results"
+                        ? false
+                        : true,
+                    );
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer border ${
+                    isPresenterSidebarOpen && activePresenterTab === "results"
+                      ? "bg-zinc-800 text-white border-zinc-700"
+                      : "bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-300 hover:text-white"
+                  }`}
+                  title="Toggle Live Results (Hotkey: R)"
                 >
-                  <BarChart2 className="w-4 h-4" /> Show Results
+                  <BarChart2 className="w-4 h-4 text-blue-400" />
+                  <span className="hidden sm:inline">Results</span>
                 </button>
               )}
-              {!showQnA && (
-                <button
-                  onClick={() => setShowQnA(true)}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs font-semibold relative transition-colors text-zinc-300 hover:text-white"
-                >
-                  <MessageCircle className="w-4 h-4" /> Q&A
-                  {pendingQnA > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-white text-black rounded-full text-[10px] flex items-center justify-center font-bold">
-                      {pendingQnA}
-                    </span>
-                  )}
-                </button>
-              )}
+
+              <button
+                onClick={() => {
+                  setActivePresenterTab("aicoach");
+                  setIsPresenterSidebarOpen((prev) =>
+                    isPresenterSidebarOpen && activePresenterTab === "aicoach"
+                      ? false
+                      : true,
+                  );
+                }}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                  isPresenterSidebarOpen && activePresenterTab === "aicoach"
+                    ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-indigo-400 shadow-md ring-2 ring-indigo-500/20"
+                    : "bg-zinc-900 hover:bg-zinc-850 border-indigo-500/30 text-indigo-300 hover:text-white"
+                }`}
+                title="Toggle Live AI Coach (Hotkey: C)"
+              >
+                <Sparkles className="w-4 h-4 text-indigo-300 animate-pulse" />
+                <span>AI Coach</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping hidden sm:inline" />
+              </button>
+
+              <button
+                onClick={() => {
+                  setActivePresenterTab("qna");
+                  setIsPresenterSidebarOpen((prev) =>
+                    isPresenterSidebarOpen && activePresenterTab === "qna"
+                      ? false
+                      : true,
+                  );
+                }}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold relative transition-colors cursor-pointer border ${
+                  isPresenterSidebarOpen && activePresenterTab === "qna"
+                    ? "bg-zinc-800 text-white border-zinc-700"
+                    : "bg-zinc-900 hover:bg-zinc-800 border-zinc-800 text-zinc-300 hover:text-white"
+                }`}
+                title="Toggle Q&A (Hotkey: Q)"
+              >
+                <MessageCircle className="w-4 h-4 text-emerald-400" />
+                <span className="hidden sm:inline">Q&A</span>
+                {pendingQnA > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-500 text-white rounded-full text-[10px] flex items-center justify-center font-bold">
+                    {pendingQnA}
+                  </span>
+                )}
+              </button>
             </>
           )}
         </div>
