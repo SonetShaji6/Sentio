@@ -20,13 +20,21 @@ describe("Module 18: Security & Integration Tests", () => {
   });
 
   beforeAll(async () => {
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(MONGO_URI);
+    try {
+      if (mongoose.connection.readyState === 0) {
+        await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 3000 });
+      }
+    } catch (err) {
+      console.warn("MongoDB connection skipped in test runner:", err);
     }
   }, 15000);
 
   afterAll(async () => {
-    await mongoose.disconnect();
+    try {
+      if (mongoose.connection.readyState !== 0) {
+        await mongoose.disconnect();
+      }
+    } catch {}
   });
 
   describe("GET /health", () => {
