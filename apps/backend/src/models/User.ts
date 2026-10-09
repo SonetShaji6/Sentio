@@ -6,6 +6,9 @@ export interface IUser extends Document {
   email: string;
   passwordHash: string;
   avatar?: string;
+  bio?: string;
+  jobTitle?: string;
+  organization?: string;
   role: UserRole;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
@@ -38,6 +41,9 @@ const UserSchema = new Schema<IUser>(
     },
     passwordHash: { type: String, required: true },
     avatar: { type: String },
+    bio: { type: String, trim: true, maxlength: 500 },
+    jobTitle: { type: String, trim: true, maxlength: 100 },
+    organization: { type: String, trim: true, maxlength: 100 },
     role: {
       type: String,
       enum: ["admin", "presenter", "participant"],

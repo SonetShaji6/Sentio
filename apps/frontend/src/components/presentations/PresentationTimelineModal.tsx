@@ -21,6 +21,10 @@ import {
   CheckCircle2,
   AlertCircle,
   Filter,
+  Mail,
+  Send,
+  Check,
+  Loader2,
 } from "lucide-react";
 
 interface TimelineEvent {
@@ -79,6 +83,101 @@ export default function PresentationTimelineModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>("all");
+
+  // Send report to participants state
+  const [selectedReportForSending, setSelectedReportForSending] =
+    useState<TimelineEvent | null>(null);
+  const [reportParticipants, setReportParticipants] = useState<any[]>([]);
+  const [loadingReportParticipants, setLoadingReportParticipants] =
+    useState(false);
+  const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
+  const [customMessage, setCustomMessage] = useState("");
+  const [sendingReport, setSendingReport] = useState(false);
+  const [sendSuccessMessage, setSendSuccessMessage] = useState<string | null>(
+    null,
+  );
+  const [sendErrorMessage, setSendErrorMessage] = useState<string | null>(null);
+
+  const handleOpenSendReportModal = async (event: TimelineEvent) => {
+    setSelectedReportForSending(event);
+    setLoadingReportParticipants(true);
+    setReportParticipants([]);
+    setSelectedEmails([]);
+    setCustomMessage("");
+    setSendSuccessMessage(null);
+    setSendErrorMessage(null);
+
+    try {
+      const token = getAccessToken();
+      const reportId = event.meta?.reportId || event.id.replace("report-", "");
+      const res = await fetch(
+        `${API_URL}/api/reports/${reportId}/participants`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (res.ok) {
+        const json = await res.json();
+        const parts = json.participants || [];
+        setReportParticipants(parts);
+        setSelectedEmails(parts.map((p: any) => p.email).filter(Boolean));
+      } else {
+        setSendErrorMessage(
+          "Could not load participants for this session report.",
+        );
+      }
+    } catch {
+      setSendErrorMessage("Failed to connect to report participants service.");
+    } finally {
+      setLoadingReportParticipants(false);
+    }
+  };
+
+  const handleDispatchReport = async () => {
+    const reportId =
+      selectedReportForSending?.meta?.reportId ||
+      selectedReportForSending?.id.replace("report-", "");
+    if (!reportId) return;
+    if (selectedEmails.length === 0) {
+      alert("Please select at least one recipient email.");
+      return;
+    }
+
+    setSendingReport(true);
+    setSendSuccessMessage(null);
+    setSendErrorMessage(null);
+
+    try {
+      const token = getAccessToken();
+      const res = await fetch(
+        `${API_URL}/api/reports/${reportId}/send-participants`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            participantEmails: selectedEmails,
+            customMessage: customMessage.trim() || undefined,
+          }),
+        },
+      );
+
+      const json = await res.json();
+      if (res.ok) {
+        setSendSuccessMessage(
+          json.message || "Report successfully emailed to participants!",
+        );
+      } else {
+        setSendErrorMessage(json.message || "Failed to dispatch report.");
+      }
+    } catch {
+      setSendErrorMessage("An error occurred while dispatching the report.");
+    } finally {
+      setSendingReport(false);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen || !presentationId) return;
@@ -363,17 +462,27 @@ export default function PresentationTimelineModal({
                       </div>
                     )}
 
-                    {event.type === "report" && event.meta?.fileUrl && (
-                      <div className="mt-3 pt-3 border-t border-zinc-200/60 dark:border-zinc-800 flex items-center justify-end">
-                        <a
-                          href={event.meta.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all"
+                    {event.type === "report" && (
+                      <div className="mt-3 pt-3 border-t border-zinc-200/60 dark:border-zinc-800 flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSendReportModal(event)}
+                          className="px-2.5 py-1 bg-white hover:bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
                         >
-                          <Download className="w-3 h-3" />
-                          <span>Download Report</span>
-                        </a>
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>Send to Participants</span>
+                        </button>
+                        {event.meta?.fileUrl && (
+                          <a
+                            href={event.meta.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all"
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>Download Report</span>
+                          </a>
+                        )}
                       </div>
                     )}
                   </div>
@@ -401,6 +510,191 @@ export default function PresentationTimelineModal({
             Start Live Presentation
           </Link>
         </div>
+        {/* Send Report to Participants Modal */}
+        {selectedReportForSending && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl flex flex-col max-h-[85vh] animate-scale-up">
+              <div className="flex items-start justify-between pb-4 border-b border-zinc-200 dark:border-zinc-800">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-lg">
+                      <Mail className="w-4 h-4" />
+                    </span>
+                    <h3 className="text-base font-bold text-zinc-950 dark:text-white">
+                      Send Report to Participants
+                    </h3>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-1">
+                    {selectedReportForSending.title}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedReportForSending(null)}
+                  className="p-1.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {loadingReportParticipants ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <Loader2 className="w-6 h-6 animate-spin text-zinc-900 dark:text-white" />
+                  <p className="text-xs text-zinc-500">
+                    Loading attendee emails...
+                  </p>
+                </div>
+              ) : sendSuccessMessage ? (
+                <div className="py-8 text-center space-y-3">
+                  <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto">
+                    <Check className="w-6 h-6" />
+                  </div>
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-white">
+                    Report Dispatched!
+                  </h4>
+                  <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+                    {sendSuccessMessage}
+                  </p>
+                  <button
+                    onClick={() => setSelectedReportForSending(null)}
+                    className="mt-4 px-5 py-2 bg-zinc-950 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl text-xs font-bold transition-all"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col flex-1 min-h-0 pt-4 space-y-4">
+                  {sendErrorMessage && (
+                    <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 text-xs rounded-xl flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{sendErrorMessage}</span>
+                    </div>
+                  )}
+
+                  {/* Recipients Checklist */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                        Select Recipients ({selectedEmails.length}/
+                        {reportParticipants.length})
+                      </label>
+                      {reportParticipants.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (
+                              selectedEmails.length ===
+                              reportParticipants.length
+                            ) {
+                              setSelectedEmails([]);
+                            } else {
+                              setSelectedEmails(
+                                reportParticipants
+                                  .map((p) => p.email)
+                                  .filter(Boolean),
+                              );
+                            }
+                          }}
+                          className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
+                        >
+                          {selectedEmails.length === reportParticipants.length
+                            ? "Deselect All"
+                            : "Select All"}
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="max-h-44 overflow-y-auto border border-zinc-200 dark:border-zinc-800 rounded-xl p-2 space-y-1 bg-zinc-50 dark:bg-zinc-900/60">
+                      {reportParticipants.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-zinc-400">
+                          No participants with registered emails were found for
+                          this session.
+                        </div>
+                      ) : (
+                        reportParticipants.map((p, idx) => (
+                          <label
+                            key={idx}
+                            className="flex items-center gap-3 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-lg cursor-pointer transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedEmails.includes(p.email)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedEmails((prev) => [
+                                    ...prev,
+                                    p.email,
+                                  ]);
+                                } else {
+                                  setSelectedEmails((prev) =>
+                                    prev.filter((em) => em !== p.email),
+                                  );
+                                }
+                              }}
+                              className="w-4 h-4 rounded border-zinc-300 text-black focus:ring-black dark:border-zinc-700 dark:bg-zinc-900"
+                            />
+                            <div className="min-w-0 flex-1 flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold text-zinc-900 dark:text-white truncate">
+                                {p.displayName}
+                              </span>
+                              <span className="text-[11px] text-zinc-500 truncate font-mono">
+                                {p.email}
+                              </span>
+                            </div>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Optional Custom Note */}
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                      Personal Note (Optional)
+                    </label>
+                    <textarea
+                      value={customMessage}
+                      onChange={(e) => setCustomMessage(e.target.value)}
+                      placeholder="Add a message for your participants..."
+                      rows={2}
+                      className="w-full bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition-all text-zinc-900 dark:text-white resize-none"
+                    />
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="pt-2 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedReportForSending(null)}
+                      className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDispatchReport}
+                      disabled={sendingReport || selectedEmails.length === 0}
+                      className="px-5 py-2 bg-zinc-950 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl text-xs font-bold flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+                    >
+                      {sendingReport ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Dispatching...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          <span>
+                            Send to {selectedEmails.length} Recipient(s)
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

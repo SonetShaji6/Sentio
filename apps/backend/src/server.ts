@@ -57,9 +57,7 @@ app.get("/health", async (_req, res) => {
   const mongoStatus =
     mongoState === 1 ? "UP" : mongoState === 2 ? "CONNECTING" : "DOWN";
   const groqStatus = process.env.GROQ_API_KEY ? "UP" : "DEGRADED";
-  const azureStatus = process.env.AZURE_STORAGE_CONNECTION_STRING
-    ? "UP"
-    : "DEGRADED";
+  const s3Status = process.env.R2_ACCESS_KEY_ID ? "UP" : "DEGRADED";
 
   const overallStatus =
     mongoStatus === "UP"
@@ -75,7 +73,7 @@ app.get("/health", async (_req, res) => {
     services: {
       database: mongoStatus,
       aiProvider: groqStatus,
-      blobStorage: azureStatus,
+      s3Storage: s3Status,
     },
   });
 });

@@ -38,6 +38,7 @@ import {
   CheckCircle2,
   Clock,
   ArrowRight,
+  Mail,
 } from "lucide-react";
 import Link from "next/link";
 import { SlideEditor } from "@/components/builder/SlideEditor";
@@ -57,8 +58,8 @@ export default function HostPresenterView() {
   const [slides, setSlides] = useState<ISlide[]>([]);
 
   const [sessionStatus, setSessionStatus] = useState<
-    "waiting" | "live" | "ended"
-  >("waiting");
+    "ready" | "presenting" | "paused" | "complete" | "ended"
+  >("ready");
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [audienceCount, setAudienceCount] = useState(0);
   const [currentSession, setCurrentSession] = useState<any>(null);
@@ -89,6 +90,7 @@ export default function HostPresenterView() {
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [origin, setOrigin] = useState("");
+  const [joinCode, setJoinCode] = useState<string>("");
 
   // Report Generation State on Ending Session
   const [isEndingModalOpen, setIsEndingModalOpen] = useState(false);
@@ -113,12 +115,19 @@ export default function HostPresenterView() {
       if (!token) return router.replace("/login");
 
       try {
-        const [presRes, slidesRes] = await Promise.all([
+        const [presRes, slidesRes, initRes] = await Promise.all([
           fetch(`${API_URL}/api/presentations/${presentationId}`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
           fetch(`${API_URL}/api/presentations/${presentationId}/slides`, {
             headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${API_URL}/api/sessions/presentation/${presentationId}/init`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
           }),
         ]);
 
@@ -126,6 +135,22 @@ export default function HostPresenterView() {
           const presData = await presRes.json();
           setPresentation(presData);
           setSlides(await slidesRes.json());
+          if (presData.sessionCode) {
+            setJoinCode(presData.sessionCode);
+          }
+        }
+
+        if (initRes.ok) {
+          const initData = await initRes.json();
+          if (initData.joinCode) {
+            setJoinCode(initData.joinCode);
+          }
+          if (initData.session) {
+            setCurrentSession(initData.session);
+            if (initData.session.status === "presenting") {
+              setSessionStatus("presenting");
+            }
+          }
         }
       } catch (error) {
         console.error("Error fetching presentation:", error);
@@ -137,14 +162,10 @@ export default function HostPresenterView() {
     fetchData();
   }, [presentationId, router]);
 
-  const joinCode =
-    presentation?.sessionCode ||
-    presentation?.shareId?.substring(0, 6).toUpperCase() ||
-    "SENTIO";
-
-  const joinUrl = origin
-    ? `${origin}/join?code=${joinCode}`
-    : `https://sentio.app/join?code=${joinCode}`;
+  const joinUrl =
+    origin && joinCode
+      ? `${origin}/join?code=${joinCode}`
+      : `https://sentio.app/join?code=${joinCode || "SENTIO"}`;
 
   const currentSlide = slides[currentSlideIndex];
 
@@ -238,7 +259,7 @@ export default function HostPresenterView() {
       }
     };
 
-    if (sessionStatus === "live" || sessionStatus === "waiting") {
+    if (sessionStatus === "presenting" || sessionStatus === "ready") {
       fetchQnA();
     }
   }, [presentation, presentationId, sessionStatus, joinCode, currentSlide]);
@@ -313,15 +334,18 @@ export default function HostPresenterView() {
 
   // Socket setup
   useEffect(() => {
-    if (!isConnected || !presentation) return;
+    if (!isConnected || !presentation || !joinCode) return;
 
     emit("host-join", { joinCode, presentationId });
 
     const unsubs: (() => void)[] = [];
 
     unsubs.push(
-      subscribe(SOCKET_EVENTS.SESSION_STARTED, () => {
-        setSessionStatus("live");
+      subscribe(SOCKET_EVENTS.SESSION_STARTED, (data: any) => {
+        setSessionStatus("presenting");
+        if (data?.session?.joinCode) {
+          setJoinCode(data.session.joinCode);
+        }
       }),
     );
 
@@ -452,7 +476,7 @@ export default function HostPresenterView() {
 
   const handleStartSession = () => {
     if (!presentation) return;
-    setSessionStatus("live");
+    setSessionStatus("presenting");
     emit(SOCKET_EVENTS.HOST_START, { presentationId, joinCode });
   };
 
@@ -828,7 +852,8 @@ export default function HostPresenterView() {
             <h1 className="text-base sm:text-lg font-bold truncate max-w-xs sm:max-w-sm text-white">
               {presentation.title}
             </h1>
-            {sessionStatus === "live" && (
+            {(sessionStatus === "presenting" ||
+              sessionStatus === "complete") && (
               <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-200 text-xs font-semibold">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 Live
@@ -904,7 +929,7 @@ export default function HostPresenterView() {
           </button>
 
           {/* Start / End Controls */}
-          {sessionStatus === "waiting" ? (
+          {sessionStatus === "ready" ? (
             <button
               onClick={handleStartSession}
               className="flex items-center gap-2 bg-white hover:bg-zinc-200 text-black px-4 py-2 rounded-xl font-bold transition-all shadow-lg text-sm cursor-pointer"
@@ -912,7 +937,7 @@ export default function HostPresenterView() {
               <Play className="w-4 h-4 fill-current" />
               <span>Start Session</span>
             </button>
-          ) : sessionStatus === "live" ? (
+          ) : sessionStatus === "presenting" || sessionStatus === "complete" ? (
             <button
               onClick={() => handleEndSession()}
               className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-bold transition-all shadow-lg text-sm cursor-pointer"
@@ -930,7 +955,7 @@ export default function HostPresenterView() {
       <div className="flex-1 flex overflow-hidden">
         {/* Slide Canvas / Lobby Area */}
         <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-8 bg-black relative overflow-auto">
-          {sessionStatus === "waiting" ? (
+          {sessionStatus === "ready" ? (
             /* Waiting Lobby with Large QR Code */
             <div className="max-w-xl w-full bg-zinc-950 border border-zinc-800 rounded-3xl p-8 text-center shadow-2xl backdrop-blur-xl animate-in fade-in duration-300">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-zinc-900 border border-zinc-750 rounded-full text-zinc-300 text-xs font-semibold mb-6">
@@ -1003,140 +1028,141 @@ export default function HostPresenterView() {
         </div>
 
         {/* Presenter Assistant Sidebar (Results, AI Coach, Q&A) */}
-        {sessionStatus === "live" && isPresenterSidebarOpen && (
-          <div className="w-[420px] max-w-[90vw] bg-zinc-950 border-l border-zinc-800 flex flex-col shrink-0 shadow-2xl z-20">
-            {/* Unified Sidebar Tab Bar */}
-            <div className="p-2.5 px-3 border-b border-zinc-800/80 bg-zinc-900/70 flex items-center justify-between gap-1">
-              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-                {isInteractiveSlide && (
+        {(sessionStatus === "presenting" || sessionStatus === "complete") &&
+          isPresenterSidebarOpen && (
+            <div className="w-[420px] max-w-[90vw] bg-zinc-950 border-l border-zinc-800 flex flex-col shrink-0 shadow-2xl z-20">
+              {/* Unified Sidebar Tab Bar */}
+              <div className="p-2.5 px-3 border-b border-zinc-800/80 bg-zinc-900/70 flex items-center justify-between gap-1">
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                  {isInteractiveSlide && (
+                    <button
+                      onClick={() => setActivePresenterTab("results")}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                        activePresenterTab === "results"
+                          ? "bg-zinc-800 text-white shadow-xs"
+                          : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                      }`}
+                    >
+                      <BarChart2 className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Live Results</span>
+                    </button>
+                  )}
+
                   <button
-                    onClick={() => setActivePresenterTab("results")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                      activePresenterTab === "results"
+                    onClick={() => setActivePresenterTab("aicoach")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer relative ${
+                      activePresenterTab === "aicoach"
+                        ? "bg-gradient-to-r from-indigo-600/30 to-purple-600/30 text-white border border-indigo-500/40 shadow-xs"
+                        : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>AI Coach</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  </button>
+
+                  <button
+                    onClick={() => setActivePresenterTab("qna")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer relative ${
+                      activePresenterTab === "qna"
                         ? "bg-zinc-800 text-white shadow-xs"
                         : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
                     }`}
                   >
-                    <BarChart2 className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Live Results</span>
-                  </button>
-                )}
-
-                <button
-                  onClick={() => setActivePresenterTab("aicoach")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer relative ${
-                    activePresenterTab === "aicoach"
-                      ? "bg-gradient-to-r from-indigo-600/30 to-purple-600/30 text-white border border-indigo-500/40 shadow-xs"
-                      : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>AI Coach</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                </button>
-
-                <button
-                  onClick={() => setActivePresenterTab("qna")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer relative ${
-                    activePresenterTab === "qna"
-                      ? "bg-zinc-800 text-white shadow-xs"
-                      : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-                  }`}
-                >
-                  <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Q&A</span>
-                  {pendingQnA > 0 && (
-                    <span className="w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] flex items-center justify-center font-bold">
-                      {pendingQnA}
-                    </span>
-                  )}
-                </button>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                {activePresenterTab === "results" && isInteractiveSlide && (
-                  <button
-                    onClick={toggleResponseLock}
-                    className={`p-1.5 rounded-lg transition-colors ${
-                      responseLocked
-                        ? "bg-amber-950/80 text-amber-400 border border-amber-800/60"
-                        : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
-                    }`}
-                    title={
-                      responseLocked ? "Unlock Responses" : "Lock Responses"
-                    }
-                  >
-                    {responseLocked ? (
-                      <Lock className="w-3.5 h-3.5" />
-                    ) : (
-                      <Unlock className="w-3.5 h-3.5" />
+                    <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Q&A</span>
+                    {pendingQnA > 0 && (
+                      <span className="w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] flex items-center justify-center font-bold">
+                        {pendingQnA}
+                      </span>
                     )}
                   </button>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {activePresenterTab === "results" && isInteractiveSlide && (
+                    <button
+                      onClick={toggleResponseLock}
+                      className={`p-1.5 rounded-lg transition-colors ${
+                        responseLocked
+                          ? "bg-amber-950/80 text-amber-400 border border-amber-800/60"
+                          : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
+                      }`}
+                      title={
+                        responseLocked ? "Unlock Responses" : "Lock Responses"
+                      }
+                    >
+                      {responseLocked ? (
+                        <Lock className="w-3.5 h-3.5" />
+                      ) : (
+                        <Unlock className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setIsPresenterSidebarOpen(false)}
+                    className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors"
+                    title="Close sidebar"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Tab Contents */}
+              <div className="flex-1 overflow-hidden flex flex-col">
+                {activePresenterTab === "results" && isInteractiveSlide && (
+                  <div className="flex-1 overflow-y-auto">
+                    <PresenterResults
+                      slideType={currentSlide.type}
+                      results={results}
+                      leaderboard={leaderboard}
+                      participantCount={audienceCount}
+                    />
+
+                    {currentSlide.type === "opentext" && results?.responses && (
+                      <ModerationPanel
+                        responses={results.responses}
+                        onModerate={handleModerateOpenText}
+                      />
+                    )}
+                  </div>
                 )}
 
-                <button
-                  onClick={() => setIsPresenterSidebarOpen(false)}
-                  className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors"
-                  title="Close sidebar"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                {activePresenterTab === "aicoach" && (
+                  <LiveAICoachPanel
+                    presentationId={presentationId}
+                    sessionId={currentSession?._id}
+                    deckTitle={presentation?.title}
+                    currentSlide={currentSlide}
+                    currentSlideIndex={currentSlideIndex}
+                    results={results}
+                    audienceCount={audienceCount}
+                    onInsertSlide={handleInsertSlideFromAI}
+                    onUpdateSlide={handleUpdateSlideFromAI}
+                  />
+                )}
+
+                {activePresenterTab === "qna" && (
+                  <div className="flex-1 overflow-hidden">
+                    <QnAPanel
+                      questions={qnaQuestions}
+                      onSubmit={() => {}}
+                      isPresenter={true}
+                      onModerate={handleModerateQnA}
+                    />
+                  </div>
+                )}
               </div>
             </div>
-
-            {/* Tab Contents */}
-            <div className="flex-1 overflow-hidden flex flex-col">
-              {activePresenterTab === "results" && isInteractiveSlide && (
-                <div className="flex-1 overflow-y-auto">
-                  <PresenterResults
-                    slideType={currentSlide.type}
-                    results={results}
-                    leaderboard={leaderboard}
-                    participantCount={audienceCount}
-                  />
-
-                  {currentSlide.type === "opentext" && results?.responses && (
-                    <ModerationPanel
-                      responses={results.responses}
-                      onModerate={handleModerateOpenText}
-                    />
-                  )}
-                </div>
-              )}
-
-              {activePresenterTab === "aicoach" && (
-                <LiveAICoachPanel
-                  presentationId={presentationId}
-                  sessionId={currentSession?._id}
-                  deckTitle={presentation?.title}
-                  currentSlide={currentSlide}
-                  currentSlideIndex={currentSlideIndex}
-                  results={results}
-                  audienceCount={audienceCount}
-                  onInsertSlide={handleInsertSlideFromAI}
-                  onUpdateSlide={handleUpdateSlideFromAI}
-                />
-              )}
-
-              {activePresenterTab === "qna" && (
-                <div className="flex-1 overflow-hidden">
-                  <QnAPanel
-                    questions={qnaQuestions}
-                    onSubmit={() => {}}
-                    isPresenter={true}
-                    onModerate={handleModerateQnA}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+          )}
       </div>
 
       {/* Presenter Controls (Bottom Bar) */}
       <div className="h-20 flex items-center justify-between px-8 bg-zinc-950 border-t border-zinc-800 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3">
-          {sessionStatus === "live" && (
+          {(sessionStatus === "presenting" || sessionStatus === "complete") && (
             <>
               {isInteractiveSlide && (
                 <button
@@ -1213,7 +1239,10 @@ export default function HostPresenterView() {
         <div className="flex items-center gap-6">
           <button
             onClick={goToPrevSlide}
-            disabled={currentSlideIndex === 0 || sessionStatus !== "live"}
+            disabled={
+              currentSlideIndex === 0 ||
+              (sessionStatus !== "presenting" && sessionStatus !== "complete")
+            }
             className="p-3 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed rounded-full transition-colors border border-zinc-800 text-zinc-300 hover:text-white"
             title="Previous Slide"
           >
@@ -1230,7 +1259,7 @@ export default function HostPresenterView() {
             onClick={goToNextSlide}
             disabled={
               currentSlideIndex === slides.length - 1 ||
-              sessionStatus !== "live"
+              (sessionStatus !== "presenting" && sessionStatus !== "complete")
             }
             className="p-3 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed rounded-full transition-colors border border-zinc-800 text-zinc-300 hover:text-white"
             title="Next Slide"
@@ -1677,11 +1706,17 @@ export default function HostPresenterView() {
                             <span className="font-bold text-sm text-white truncate">
                               {p.displayName}
                             </span>
-                            <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold">
+                            <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold shrink-0">
                               Knocking
                             </span>
                           </div>
-                          <div className="text-[11px] text-zinc-400 mt-0.5">
+                          {p.email && (
+                            <div className="text-xs text-zinc-300 font-medium truncate flex items-center gap-1 mt-0.5">
+                              <Mail className="w-3 h-3 text-zinc-500 shrink-0" />
+                              <span className="truncate">{p.email}</span>
+                            </div>
+                          )}
+                          <div className="text-[11px] text-zinc-500 mt-0.5">
                             Waiting to join &bull; Room #{joinCode}
                           </div>
                         </div>
@@ -1741,7 +1776,7 @@ export default function HostPresenterView() {
                               {p.displayName}
                             </span>
                             <span
-                              className={`w-2 h-2 rounded-full ${
+                              className={`w-2 h-2 rounded-full shrink-0 ${
                                 p.isOnline !== false
                                   ? "bg-emerald-400"
                                   : "bg-zinc-600"
@@ -1751,10 +1786,28 @@ export default function HostPresenterView() {
                               }
                             />
                           </div>
+                          {p.email && (
+                            <div className="text-xs text-zinc-300 font-medium truncate flex items-center gap-1 mt-0.5">
+                              <Mail className="w-3 h-3 text-zinc-500 shrink-0" />
+                              <span className="truncate">{p.email}</span>
+                            </div>
+                          )}
                           <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
                             <span>
                               {p.isOnline !== false ? "Active" : "Offline"}
                             </span>
+                            {p.joinedAt && (
+                              <>
+                                <span>&bull;</span>
+                                <span>
+                                  Joined{" "}
+                                  {new Date(p.joinedAt).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </span>
+                              </>
+                            )}
                             {typeof p.score === "number" && p.score > 0 && (
                               <>
                                 <span>&bull;</span>

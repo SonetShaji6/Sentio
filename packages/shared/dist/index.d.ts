@@ -5,8 +5,12 @@ export interface User {
     name: string;
     email: string;
     avatar?: string;
+    bio?: string;
+    jobTitle?: string;
+    organization?: string;
     role: UserRole;
     isEmailVerified?: boolean;
+    preferences?: any;
     createdAt: string;
 }
 export interface RegisterRequest {
@@ -22,6 +26,10 @@ export interface LoginRequest {
 export interface UpdateProfileRequest {
     name?: string;
     avatar?: string;
+    bio?: string;
+    jobTitle?: string;
+    organization?: string;
+    preferences?: any;
     currentPassword?: string;
     newPassword?: string;
 }

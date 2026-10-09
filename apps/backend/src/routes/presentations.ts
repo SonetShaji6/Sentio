@@ -5,7 +5,7 @@ import Slide from "../models/Slide";
 import Session from "../models/Session";
 import Report from "../models/Report";
 import OrganizationMember from "../models/OrganizationMember";
-import { uploadFileToAzure, deleteFileFromAzure } from "../services/azure";
+import { uploadFileToS3, deleteFileFromS3 } from "../services/s3";
 import multer from "multer";
 import crypto from "crypto";
 import { Types } from "mongoose";
@@ -293,7 +293,9 @@ router.get(
           )
           .sort({ createdAt: -1 }),
         Report.find({ presentationId: presentation._id })
-          .select("_id title type status fileFormat fileUrl createdAt")
+          .select(
+            "_id title type status fileFormat fileUrl sessionId createdAt",
+          )
           .sort({ createdAt: -1 }),
       ]);
 
@@ -384,6 +386,7 @@ router.get(
           status: r.status,
           meta: {
             reportId: r._id,
+            sessionId: r.sessionId,
             fileUrl: r.fileUrl,
             fileFormat: r.fileFormat,
             status: r.status,
@@ -732,7 +735,7 @@ router.post(
       const extension = req.file.mimetype.split("/")[1] || "bin";
       const fileName = `${presentation._id}-${fileType}-${Date.now()}.${extension}`;
 
-      const fileUrl = await uploadFileToAzure(
+      const fileUrl = await uploadFileToS3(
         "presentations",
         fileName,
         req.file.buffer,
@@ -745,7 +748,7 @@ router.post(
           ? presentation.coverImage
           : presentation.pdfUrl;
       if (existingFile) {
-        await deleteFileFromAzure("presentations", existingFile);
+        await deleteFileFromS3("presentations", existingFile);
       }
 
       if (fileType === "coverImage") {
@@ -1233,7 +1236,7 @@ router.post(
       const extension = req.file.mimetype.split("/")[1] || "bin";
       const fileName = `slide-${slide._id}-${Date.now()}.${extension}`;
 
-      const fileUrl = await uploadFileToAzure(
+      const fileUrl = await uploadFileToS3(
         "presentations",
         fileName,
         req.file.buffer,

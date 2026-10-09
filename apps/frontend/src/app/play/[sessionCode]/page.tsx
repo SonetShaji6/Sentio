@@ -81,6 +81,7 @@ export default function AudienceView() {
 
   const joinCode = ((params.sessionCode as string) || "").toUpperCase();
   const displayName = searchParams.get("name") || "Participant";
+  const email = searchParams.get("email") || undefined;
 
   const [connectionState, setConnectionState] = useState<
     "connecting" | "pending_approval" | "joined" | "error"
@@ -134,10 +135,16 @@ export default function AudienceView() {
   };
 
   useEffect(() => {
-    if (!isConnected) return;
+    if (!email) {
+      router.replace(`/join?code=${joinCode}`);
+    }
+  }, [email, joinCode, router]);
+
+  useEffect(() => {
+    if (!isConnected || !email) return;
 
     // Join the session
-    emit(SOCKET_EVENTS.JOIN_SESSION, { joinCode, displayName });
+    emit(SOCKET_EVENTS.JOIN_SESSION, { joinCode, displayName, email });
 
     const unsubs: (() => void)[] = [];
 
@@ -351,7 +358,7 @@ export default function AudienceView() {
     return () => {
       unsubs.forEach((unsub) => unsub());
     };
-  }, [isConnected, joinCode, displayName]);
+  }, [isConnected, joinCode, displayName, email]);
 
   const resetSlideState = () => {
     setCurrentSlide(null);

@@ -189,3 +189,58 @@ export async function sendNotificationEmail(
     console.error("Failed to send notification email:", error);
   }
 }
+
+export async function sendPresentationReportEmail(
+  email: string,
+  participantName: string,
+  presentationTitle: string,
+  reportTitle: string,
+  reportUrl: string,
+  summaryText?: string,
+) {
+  if (isDev && !process.env.RESEND_API_KEY) {
+    console.log(
+      `[DEV EMAIL] Report for ${email} (${participantName}) on "${presentationTitle}": ${reportUrl}`,
+    );
+    return;
+  }
+
+  const resend = getResendClient();
+
+  try {
+    await resend.emails.send({
+      from: defaultFrom,
+      to: email,
+      subject: `[${APP_NAME}] Presentation Summary & Report: ${presentationTitle}`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #111827; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px;">
+          <div style="margin-bottom: 20px;">
+            <span style="font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: #000000;">SENTIO</span>
+          </div>
+          <h2 style="font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 8px;">Hello ${participantName || "Participant"},</h2>
+          <p style="font-size: 14px; color: #4B5563; line-height: 1.5; margin-bottom: 16px;">
+            Thank you for participating in <strong>"${presentationTitle}"</strong>. The presentation session report and analytics summary have been compiled and are ready for you.
+          </p>
+          ${
+            summaryText
+              ? `<div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; margin-bottom: 20px;">
+                  <p style="font-size: 13px; color: #374151; margin: 0; line-height: 1.5;">${summaryText}</p>
+                </div>`
+              : ""
+          }
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="${reportUrl}" target="_blank" style="display: inline-block; background-color: #000000; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 10px; font-size: 14px; font-weight: 700;">
+              View &amp; Download Report
+            </a>
+          </div>
+          <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 20px 0;" />
+          <p style="font-size: 11px; color: #9CA3AF; margin: 0;">
+            Sentio Intelligence Engine &bull; Interactive Presentation Platform
+          </p>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error("Failed to send presentation report email:", error);
+  }
+}

@@ -26,6 +26,9 @@ import {
   X,
   Sparkles,
   Download,
+  Mail,
+  Copy,
+  Check,
 } from "lucide-react";
 
 export default function AdminConsolePage() {
@@ -78,6 +81,31 @@ export default function AdminConsolePage() {
 
   // File text preview
   const [previewFile, setPreviewFile] = useState<any | null>(null);
+
+  // Notification modal state
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [notificationForm, setNotificationForm] = useState({
+    title: "",
+    message: "",
+    targetUsers: "ALL", // "ALL" or "SPECIFIC"
+    specificUserIds: [] as string[],
+    deliveryMethod: "both", // "portal", "email", "both"
+    targetRole: "ALL", // "ALL", "admin", "presenter", "participant"
+  });
+  const [sendingNotification, setSendingNotification] = useState(false);
+
+  // Presentation participants inspection modal
+  const [
+    selectedPresentationForParticipants,
+    setSelectedPresentationForParticipants,
+  ] = useState<any | null>(null);
+  const [presentationParticipantsData, setPresentationParticipantsData] =
+    useState<any | null>(null);
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [participantSearchQuery, setParticipantSearchQuery] = useState("");
+  const [copiedParticipantEmail, setCopiedParticipantEmail] = useState<
+    string | null
+  >(null);
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -311,6 +339,119 @@ export default function AdminConsolePage() {
     }
   };
 
+  const handleDeleteUserAdmin = async (userId: string, email: string) => {
+    if (!confirm(`Are you sure you want to permanently delete user ${email}?`))
+      return;
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_URL}/api/admin/users/${userId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setUsers((prev) => prev.filter((u) => u._id !== userId));
+      } else {
+        const data = await res.json();
+        alert(data.message || "Failed to delete user");
+      }
+    } catch (err) {
+      console.error("Delete user error:", err);
+    }
+  };
+
+  const handleViewPresentationParticipants = async (p: any) => {
+    setSelectedPresentationForParticipants(p);
+    setLoadingParticipants(true);
+    setPresentationParticipantsData(null);
+    setParticipantSearchQuery("");
+    try {
+      const token = getAccessToken();
+      const res = await fetch(
+        `${API_URL}/api/admin/presentations/${p._id}/participants`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setPresentationParticipantsData(data);
+      }
+    } catch (err) {
+      console.error("Error fetching presentation participants:", err);
+    } finally {
+      setLoadingParticipants(false);
+    }
+  };
+
+  const handleBlockPresentationAdmin = async (
+    id: string,
+    title: string,
+    isBlocked: boolean,
+  ) => {
+    if (
+      !confirm(
+        `Are you sure you want to ${isBlocked ? "block" : "unblock"} presentation "${title}"?`,
+      )
+    )
+      return;
+    try {
+      const token = getAccessToken();
+      const res = await fetch(
+        `${API_URL}/api/admin/presentations/${id}/block`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ isBlocked }),
+        },
+      );
+      if (res.ok) {
+        setPresentations((prev) =>
+          prev.map((p) => (p._id === id ? { ...p, isBlocked } : p)),
+        );
+        setUserPresentations((prev) =>
+          prev.map((p) => (p._id === id ? { ...p, isBlocked } : p)),
+        );
+      } else {
+        const data = await res.json();
+        alert(data.message || "Failed to block presentation");
+      }
+    } catch (err) {
+      console.error("Block presentation error:", err);
+    }
+  };
+
+  const handleDeleteFileAdmin = async (id: string, originalName: string) => {
+    if (
+      !confirm(
+        `Are you sure you want to permanently delete file "${originalName}"?`,
+      )
+    )
+      return;
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_URL}/api/admin/files/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setFiles((prev) => prev.filter((f) => f._id !== id));
+        setUserFiles((prev) => prev.filter((f) => f._id !== id));
+      } else {
+        const data = await res.json();
+        alert(data.message || "Failed to delete file");
+      }
+    } catch (err) {
+      console.error("Delete file error:", err);
+    }
+  };
+
+  const handleSendNotificationAdmin = () => {
+    setShowNotificationModal(true);
+  };
+
   const handleDeletePresentationAdmin = async (id: string, title: string) => {
     if (
       !confirm(
@@ -384,20 +525,28 @@ export default function AdminConsolePage() {
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              fetchDashboardData();
-              if (activeTab === "users") fetchUsers();
-              if (activeTab === "presentations") fetchPresentations();
-              if (activeTab === "files") fetchFiles();
-              if (activeTab === "organizations") fetchOrganizations();
-              if (activeTab === "sessions") fetchSessions();
-            }}
-            className="p-2.5 text-zinc-500 hover:text-zinc-950 dark:hover:text-white bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl"
-            title="Refresh Data"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSendNotificationAdmin}
+              className="px-4 py-2 bg-zinc-950 hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 rounded-xl text-xs font-bold flex items-center gap-2 transition-transform active:scale-95"
+            >
+              <Radio className="w-4 h-4" /> Broadcast Notice
+            </button>
+            <button
+              onClick={() => {
+                fetchDashboardData();
+                if (activeTab === "users") fetchUsers();
+                if (activeTab === "presentations") fetchPresentations();
+                if (activeTab === "files") fetchFiles();
+                if (activeTab === "organizations") fetchOrganizations();
+                if (activeTab === "sessions") fetchSessions();
+              }}
+              className="p-2.5 text-zinc-500 hover:text-zinc-950 dark:hover:text-white bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl"
+              title="Refresh Data"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
@@ -660,13 +809,21 @@ export default function AdminConsolePage() {
                         </button>
                         <button
                           onClick={() => handleToggleBlock(u._id, u.isBlocked)}
-                          className={`p-1.5 rounded-xl border ${u.isBlocked ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}
+                          className={`p-1.5 rounded-xl border ${u.isBlocked ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-red-50 text-red-600 border-red-200"}`}
+                          title={u.isBlocked ? "Unblock User" : "Block User"}
                         >
                           {u.isBlocked ? (
                             <Unlock className="w-3.5 h-3.5" />
                           ) : (
                             <Lock className="w-3.5 h-3.5" />
                           )}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUserAdmin(u._id, u.email)}
+                          className="p-1.5 rounded-xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                          title="Delete User"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </td>
                     </tr>
@@ -743,21 +900,57 @@ export default function AdminConsolePage() {
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-                    <Link
-                      href={`/presentations/${p._id}/edit`}
-                      className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border border-zinc-200 dark:border-zinc-700 active-press"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" /> Open
-                    </Link>
-                    <button
-                      onClick={() =>
-                        handleDeletePresentationAdmin(p._id, p.title)
-                      }
-                      className="p-2 text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors cursor-pointer"
-                      title="Delete Presentation as Admin"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <Link
+                        href={`/presentations/${p._id}/edit`}
+                        className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border border-zinc-200 dark:border-zinc-700 active-press"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" /> Open
+                      </Link>
+                      <button
+                        onClick={() => handleViewPresentationParticipants(p)}
+                        className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border border-zinc-200 dark:border-zinc-700 cursor-pointer active-press"
+                        title="View presentation participants and attendance"
+                      >
+                        <Users className="w-3.5 h-3.5" /> Participants
+                      </button>
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() =>
+                          handleBlockPresentationAdmin(
+                            p._id,
+                            p.title,
+                            !p.isBlocked,
+                          )
+                        }
+                        className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                          p.isBlocked
+                            ? "text-emerald-600 hover:bg-emerald-50 bg-emerald-50/50"
+                            : "text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                        }`}
+                        title={
+                          p.isBlocked
+                            ? "Unblock Presentation"
+                            : "Block Presentation"
+                        }
+                      >
+                        {p.isBlocked ? (
+                          <CheckCircle2 className="w-4 h-4" />
+                        ) : (
+                          <Lock className="w-4 h-4" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() =>
+                          handleDeletePresentationAdmin(p._id, p.title)
+                        }
+                        className="p-2 text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors cursor-pointer"
+                        title="Delete Presentation as Admin"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -830,24 +1023,35 @@ export default function AdminConsolePage() {
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-                    {file.extractedText && (
+                    <div className="flex gap-2">
+                      {file.extractedText && (
+                        <button
+                          onClick={() => setPreviewFile(file)}
+                          className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border border-zinc-200 dark:border-zinc-700 cursor-pointer active-press"
+                        >
+                          <Eye className="w-3.5 h-3.5" /> View Text
+                        </button>
+                      )}
+                      {file.fileUrl && (
+                        <a
+                          href={file.fileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-1.5 bg-zinc-950 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active-press"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </a>
+                      )}
                       <button
-                        onClick={() => setPreviewFile(file)}
-                        className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border border-zinc-200 dark:border-zinc-700 cursor-pointer active-press"
+                        onClick={() =>
+                          handleDeleteFileAdmin(file._id, file.originalName)
+                        }
+                        className="px-3 py-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active-press"
+                        title="Delete File"
                       >
-                        <Eye className="w-3.5 h-3.5" /> View Text
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                    )}
-                    {file.fileUrl && (
-                      <a
-                        href={file.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 bg-zinc-950 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active-press"
-                      >
-                        <Download className="w-3.5 h-3.5" /> Download
-                      </a>
-                    )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1190,13 +1394,20 @@ export default function AdminConsolePage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <Link
                           href={`/presentations/${p._id}/edit`}
                           className="px-2.5 py-1 bg-zinc-950 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-lg text-xs font-bold flex items-center gap-1"
                         >
                           <ExternalLink className="w-3 h-3" /> Open
                         </Link>
+                        <button
+                          onClick={() => handleViewPresentationParticipants(p)}
+                          className="px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 rounded-lg text-xs font-bold flex items-center gap-1 border border-zinc-200 dark:border-zinc-700 cursor-pointer"
+                          title="View participants"
+                        >
+                          <Users className="w-3 h-3" /> Participants
+                        </button>
                         <button
                           onClick={() =>
                             handleDeletePresentationAdmin(p._id, p.title)
@@ -1373,6 +1584,481 @@ export default function AdminConsolePage() {
             </div>
             <div className="flex-1 overflow-y-auto mt-4 p-4 bg-zinc-50 dark:bg-zinc-950 rounded-2xl font-mono text-xs text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed border border-zinc-200/60 dark:border-zinc-800/60">
               {previewFile.extractedText || "No text content available."}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notification Modal */}
+      {showNotificationModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 w-full max-w-lg shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h4 className="font-bold text-lg text-zinc-900 dark:text-white flex items-center gap-2">
+                <Radio className="w-5 h-5 text-black dark:text-white" />
+                Broadcast Notification
+              </h4>
+              <button
+                onClick={() => setShowNotificationModal(false)}
+                className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full"
+              >
+                <X className="w-5 h-5 text-zinc-500" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  value={notificationForm.title}
+                  onChange={(e) =>
+                    setNotificationForm((prev) => ({
+                      ...prev,
+                      title: e.target.value,
+                    }))
+                  }
+                  className="w-full bg-transparent border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition-shadow"
+                  placeholder="Notification Subject"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  Message
+                </label>
+                <textarea
+                  value={notificationForm.message}
+                  onChange={(e) =>
+                    setNotificationForm((prev) => ({
+                      ...prev,
+                      message: e.target.value,
+                    }))
+                  }
+                  className="w-full bg-transparent border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 text-sm min-h-[120px] resize-y focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition-shadow"
+                  placeholder="Enter your message here..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                    Delivery Method
+                  </label>
+                  <select
+                    value={notificationForm.deliveryMethod}
+                    onChange={(e) =>
+                      setNotificationForm((prev) => ({
+                        ...prev,
+                        deliveryMethod: e.target.value,
+                      }))
+                    }
+                    className="w-full bg-transparent border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition-shadow appearance-none"
+                  >
+                    <option value="both">Portal + Email</option>
+                    <option value="portal">Portal Only</option>
+                    <option value="email">Email Only</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                    Target Audience
+                  </label>
+                  <select
+                    value={notificationForm.targetUsers}
+                    onChange={(e) =>
+                      setNotificationForm((prev) => ({
+                        ...prev,
+                        targetUsers: e.target.value,
+                      }))
+                    }
+                    className="w-full bg-transparent border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition-shadow appearance-none"
+                  >
+                    <option value="ALL">All Users</option>
+                    <option value="SPECIFIC">Specific Users (By ID)</option>
+                  </select>
+                </div>
+              </div>
+
+              {notificationForm.targetUsers === "ALL" && (
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                    Filter by Role
+                  </label>
+                  <select
+                    value={notificationForm.targetRole}
+                    onChange={(e) =>
+                      setNotificationForm((prev) => ({
+                        ...prev,
+                        targetRole: e.target.value,
+                      }))
+                    }
+                    className="w-full bg-transparent border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition-shadow appearance-none"
+                  >
+                    <option value="ALL">Everyone</option>
+                    <option value="presenter">Presenters Only</option>
+                    <option value="participant">Participants Only</option>
+                    <option value="admin">Admins Only</option>
+                  </select>
+                </div>
+              )}
+
+              {notificationForm.targetUsers === "SPECIFIC" && (
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                    Select Users
+                  </label>
+                  <div className="w-full bg-transparent border border-zinc-200 dark:border-zinc-800 rounded-xl p-2 max-h-48 overflow-y-auto space-y-1">
+                    {users.map((u) => (
+                      <label
+                        key={u._id}
+                        className="flex items-center gap-3 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-zinc-300 text-black focus:ring-black dark:border-zinc-700 dark:bg-zinc-900"
+                          checked={notificationForm.specificUserIds.includes(
+                            u._id,
+                          )}
+                          onChange={(e) => {
+                            setNotificationForm((prev) => {
+                              if (e.target.checked) {
+                                return {
+                                  ...prev,
+                                  specificUserIds: [
+                                    ...prev.specificUserIds,
+                                    u._id,
+                                  ],
+                                };
+                              } else {
+                                return {
+                                  ...prev,
+                                  specificUserIds: prev.specificUserIds.filter(
+                                    (id) => id !== u._id,
+                                  ),
+                                };
+                              }
+                            });
+                          }}
+                        />
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-zinc-900 dark:text-white">
+                            {u.name}
+                          </span>
+                          <span className="text-xs text-zinc-500">
+                            {u.email}
+                          </span>
+                        </div>
+                      </label>
+                    ))}
+                    {users.length === 0 && (
+                      <div className="p-2 text-xs text-zinc-500">
+                        No users found
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowNotificationModal(false)}
+                className="px-4 py-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl font-bold text-sm transition-colors"
+                disabled={sendingNotification}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!notificationForm.title || !notificationForm.message) {
+                    alert("Title and message are required.");
+                    return;
+                  }
+
+                  setSendingNotification(true);
+                  try {
+                    const token = getAccessToken();
+
+                    let targetUsersVal: any = "ALL";
+                    if (notificationForm.targetUsers === "SPECIFIC") {
+                      targetUsersVal = notificationForm.specificUserIds;
+                      if (targetUsersVal.length === 0) {
+                        alert("Please select at least one User");
+                        setSendingNotification(false);
+                        return;
+                      }
+                    }
+
+                    const res = await fetch(
+                      `${API_URL}/api/admin/notifications/send`,
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({
+                          title: notificationForm.title,
+                          message: notificationForm.message,
+                          deliveryMethod: notificationForm.deliveryMethod,
+                          targetUsers: targetUsersVal,
+                          targetRole: notificationForm.targetRole,
+                        }),
+                      },
+                    );
+
+                    if (res.ok) {
+                      const data = await res.json();
+                      alert(data.message);
+                      setShowNotificationModal(false);
+                      setNotificationForm({
+                        title: "",
+                        message: "",
+                        targetUsers: "ALL",
+                        specificUserIds: [],
+                        deliveryMethod: "both",
+                        targetRole: "ALL",
+                      });
+                      // Only fetch if audit tab is active or just force a refresh
+                      fetchDashboardData();
+                    } else {
+                      const data = await res.json();
+                      alert(data.message || "Failed to send notification");
+                    }
+                  } catch (err) {
+                    console.error("Send notification error:", err);
+                    alert("An error occurred");
+                  } finally {
+                    setSendingNotification(false);
+                  }
+                }}
+                className="px-6 py-2 bg-black hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-black rounded-xl font-bold text-sm transition-colors flex items-center gap-2"
+                disabled={sendingNotification}
+              >
+                {sendingNotification ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Send"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Presentation Participants Inspection Modal */}
+      {selectedPresentationForParticipants && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full max-w-3xl p-6 shadow-2xl flex flex-col max-h-[85vh] animate-scale-up">
+            <div className="flex items-start justify-between pb-4 border-b border-zinc-200 dark:border-zinc-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white rounded-lg">
+                    <Users className="w-4 h-4" />
+                  </span>
+                  <h3 className="text-lg font-bold text-zinc-950 dark:text-white">
+                    Participants &amp; Attendance
+                  </h3>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                  Presentation:{" "}
+                  <strong className="text-zinc-900 dark:text-white">
+                    {selectedPresentationForParticipants.title}
+                  </strong>{" "}
+                  &bull; Owner:{" "}
+                  {selectedPresentationForParticipants.owner?.name ||
+                    "Presenter"}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedPresentationForParticipants(null)}
+                className="p-1.5 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {loadingParticipants ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-zinc-950 dark:text-white" />
+                <p className="text-xs text-zinc-500">
+                  Loading participant records...
+                </p>
+              </div>
+            ) : presentationParticipantsData ? (
+              <div className="flex flex-col flex-1 min-h-0 pt-4">
+                {/* Metrics header */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="p-3 bg-zinc-50 dark:bg-zinc-900/60 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase">
+                      Total Participants
+                    </div>
+                    <div className="text-lg font-bold font-mono text-zinc-900 dark:text-white mt-0.5">
+                      {presentationParticipantsData.totalParticipants || 0}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-zinc-50 dark:bg-zinc-900/60 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase">
+                      Sessions Hosted
+                    </div>
+                    <div className="text-lg font-bold font-mono text-zinc-900 dark:text-white mt-0.5">
+                      {presentationParticipantsData.sessionsCount || 0}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-zinc-50 dark:bg-zinc-900/60 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase">
+                      Current Status
+                    </div>
+                    <div className="text-xs font-bold uppercase mt-1">
+                      <span className="px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200">
+                        {presentationParticipantsData.presentation?.status ||
+                          "Draft"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filter search bar */}
+                <div className="mb-3 relative">
+                  <Search className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
+                  <input
+                    type="text"
+                    value={participantSearchQuery}
+                    onChange={(e) => setParticipantSearchQuery(e.target.value)}
+                    placeholder="Search by participant name, email or room code..."
+                    className="w-full bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white transition-all text-zinc-900 dark:text-white"
+                  />
+                </div>
+
+                {/* Scrollable list */}
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                  {(() => {
+                    const filtered = (
+                      presentationParticipantsData.participants || []
+                    ).filter(
+                      (p: any) =>
+                        p.displayName
+                          ?.toLowerCase()
+                          .includes(participantSearchQuery.toLowerCase()) ||
+                        p.email
+                          ?.toLowerCase()
+                          .includes(participantSearchQuery.toLowerCase()) ||
+                        p.joinCode
+                          ?.toLowerCase()
+                          .includes(participantSearchQuery.toLowerCase()),
+                    );
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="text-center py-12 text-zinc-500">
+                          <Users className="w-8 h-8 mx-auto opacity-30 mb-2" />
+                          <p className="text-sm font-medium">
+                            No participants found
+                          </p>
+                          <p className="text-xs text-zinc-400 mt-1">
+                            Participants will be logged with their email
+                            addresses once they join room sessions.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return filtered.map((p: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="p-3.5 bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex items-center justify-between gap-4 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white flex items-center justify-center font-bold text-sm shrink-0 font-mono">
+                            {(p.displayName || "P").charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-sm text-zinc-900 dark:text-white truncate">
+                                {p.displayName}
+                              </span>
+                              <span
+                                className={`w-2 h-2 rounded-full shrink-0 ${
+                                  p.isOnline
+                                    ? "bg-emerald-400"
+                                    : "bg-zinc-400 dark:bg-zinc-600"
+                                }`}
+                                title={p.isOnline ? "Online" : "Offline"}
+                              />
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
+                              <Mail className="w-3 h-3 shrink-0" />
+                              <span className="truncate font-medium text-zinc-700 dark:text-zinc-300">
+                                {p.email}
+                              </span>
+                              {p.email && p.email !== "N/A" && (
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(p.email);
+                                    setCopiedParticipantEmail(p.email);
+                                    setTimeout(
+                                      () => setCopiedParticipantEmail(null),
+                                      1500,
+                                    );
+                                  }}
+                                  className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-0.5 ml-0.5 cursor-pointer"
+                                  title="Copy email"
+                                >
+                                  {copiedParticipantEmail === p.email ? (
+                                    <Check className="w-3 h-3 text-emerald-500" />
+                                  ) : (
+                                    <Copy className="w-3 h-3" />
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-200 dark:bg-zinc-800 font-bold text-zinc-800 dark:text-zinc-200">
+                              Room #{p.joinCode}
+                            </span>
+                            {p.score > 0 && (
+                              <span className="text-[10px] font-bold text-amber-500">
+                                {p.score} pts
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-zinc-400">
+                            {p.joinedAt
+                              ? new Date(p.joinedAt).toLocaleString([], {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : "Active"}
+                          </span>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            ) : (
+              <div className="py-12 text-center text-xs text-zinc-500">
+                Failed to load participant data.
+              </div>
+            )}
+
+            <div className="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-800 flex justify-end">
+              <button
+                onClick={() => setSelectedPresentationForParticipants(null)}
+                className="px-5 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

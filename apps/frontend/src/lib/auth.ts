@@ -116,6 +116,9 @@ export interface AuthUser {
   name: string;
   email: string;
   avatar?: string;
+  bio?: string;
+  jobTitle?: string;
+  organization?: string;
   role: string;
   isEmailVerified?: boolean;
   createdAt: string;
@@ -124,6 +127,9 @@ export interface AuthUser {
     notifications: {
       email: boolean;
       push: boolean;
+      aiStatus?: boolean;
+      reportReady?: boolean;
+      systemAnnouncements?: boolean;
     };
   };
 }

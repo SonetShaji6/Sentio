@@ -1,5 +1,6 @@
 import { Server, Socket } from "socket.io";
 import { SOCKET_EVENTS } from "@sentio/shared";
+import { generateUnique6DigitCode } from "./utils/codeGenerator";
 import Session from "./models/Session";
 import Challenge from "./models/Challenge";
 import Experience from "./models/Experience";
@@ -30,7 +31,11 @@ type ResponseModeratedPayload = {
   interactionId: string;
   action: "hide" | "approve" | "highlight";
 };
-type JoinSessionPayload = { joinCode: string; displayName: string };
+type JoinSessionPayload = {
+  joinCode: string;
+  displayName: string;
+  email?: string;
+};
 type InteractionSubmitPayload = {
   joinCode: string;
   slideId: string;
@@ -79,14 +84,14 @@ function registerHostEvents(socket: Socket, io: Server): void {
     "host-join",
     async ({ joinCode, presentationId }: HostJoinPayload) => {
       try {
-        const cleanCode = (joinCode || "").trim().toUpperCase();
-        if (cleanCode) {
-          socket.join(cleanCode);
-
+        let cleanCode = (joinCode || "").trim().toUpperCase();
+        if (cleanCode || presentationId) {
           // Find or create session in waiting status
           let session = await Session.findOne({
             $or: [
-              { joinCode: cleanCode, status: { $ne: "ended" } },
+              ...(cleanCode
+                ? [{ joinCode: cleanCode, status: { $ne: "ended" } }]
+                : []),
               ...(presentationId
                 ? [
                     {
@@ -99,10 +104,15 @@ function registerHostEvents(socket: Socket, io: Server): void {
           } as any);
 
           if (!session) {
+            cleanCode =
+              cleanCode && /^\d{6}$/.test(cleanCode)
+                ? cleanCode
+                : await generateUnique6DigitCode();
+
             session = new Session({
               presentationId: presentationId || undefined,
               joinCode: cleanCode,
-              status: "waiting",
+              status: "ready",
               startedAt: new Date(),
               hostSocketId: socket.id,
               currentSlideIndex: 0,
@@ -112,6 +122,7 @@ function registerHostEvents(socket: Socket, io: Server): void {
             if (presentationId) {
               await Presentation.findByIdAndUpdate(presentationId, {
                 sessionCode: cleanCode,
+                status: "live",
               });
             }
           } else {
@@ -119,9 +130,16 @@ function registerHostEvents(socket: Socket, io: Server): void {
             if (presentationId && !session.presentationId) {
               session.presentationId = presentationId as any;
             }
-            if (cleanCode) session.joinCode = cleanCode;
+            if (cleanCode && /^\d{6}$/.test(cleanCode)) {
+              session.joinCode = cleanCode;
+            } else if (!session.joinCode || !/^\d{6}$/.test(session.joinCode)) {
+              session.joinCode = await generateUnique6DigitCode();
+            }
             await session.save();
+            cleanCode = session.joinCode;
           }
+
+          socket.join(cleanCode);
         }
       } catch (error) {
         console.error("host-join error:", error);
@@ -133,9 +151,10 @@ function registerHostEvents(socket: Socket, io: Server): void {
     SOCKET_EVENTS.HOST_START,
     async ({ experienceId, presentationId, joinCode }: HostStartPayload) => {
       try {
-        const cleanCode = (joinCode || "").trim().toUpperCase();
+        let cleanCode = (joinCode || "").trim().toUpperCase();
         const orConditions: any[] = [];
-        if (cleanCode) orConditions.push({ joinCode: cleanCode });
+        if (cleanCode)
+          orConditions.push({ joinCode: cleanCode, status: { $ne: "ended" } });
         if (presentationId) {
           orConditions.push({ presentationId, status: { $ne: "ended" } });
         }
@@ -149,22 +168,29 @@ function registerHostEvents(socket: Socket, io: Server): void {
             : null;
 
         if (!session) {
+          cleanCode =
+            cleanCode && /^\d{6}$/.test(cleanCode)
+              ? cleanCode
+              : await generateUnique6DigitCode();
+
           session = new Session({
             presentationId: presentationId || undefined,
             experienceId: experienceId || undefined,
-            joinCode:
-              cleanCode ||
-              Math.random().toString(36).substring(2, 8).toUpperCase(),
-            status: "live",
+            joinCode: cleanCode,
+            status: "presenting",
             startedAt: new Date(),
             hostSocketId: socket.id,
             currentSlideIndex: 0,
           });
         } else {
-          session.status = "live";
+          session.status = "presenting";
           session.hostSocketId = socket.id;
           if (presentationId) session.presentationId = presentationId;
-          if (cleanCode) session.joinCode = cleanCode;
+          if (cleanCode && /^\d{6}$/.test(cleanCode)) {
+            session.joinCode = cleanCode;
+          } else if (!session.joinCode || !/^\d{6}$/.test(session.joinCode)) {
+            session.joinCode = await generateUnique6DigitCode();
+          }
           if (session.currentSlideIndex === undefined) {
             session.currentSlideIndex = 0;
           }
@@ -248,6 +274,21 @@ function registerHostEvents(socket: Socket, io: Server): void {
               session,
             );
           }
+
+          if (
+            slideIndex === slides.length - 1 &&
+            session.status !== "complete"
+          ) {
+            session.status = "complete";
+            await session.save();
+            io.to(session.joinCode).emit(SOCKET_EVENTS.SESSION_ENDED); // Or a new event for COMPLETE? Let's send a status update
+
+            reportService
+              .generateAndSaveSessionReport(session._id.toString())
+              .catch((err) => {
+                console.error("Auto session report generation error:", err);
+              });
+          }
         }
       } catch (error) {
         console.error("host-slide-change error:", error);
@@ -296,7 +337,7 @@ function registerHostEvents(socket: Socket, io: Server): void {
   socket.on(
     SOCKET_EVENTS.HOST_RESUME,
     async ({ joinCode }: JoinCodePayload) => {
-      await Session.updateOne({ joinCode }, { status: "live" });
+      await Session.updateOne({ joinCode }, { status: "presenting" });
       io.to(joinCode).emit(SOCKET_EVENTS.SESSION_RESUMED);
     },
   );
@@ -498,7 +539,7 @@ function registerHostEvents(socket: Socket, io: Server): void {
             });
 
             // If presentation is live, send current slide data
-            if (session.presentationId && session.status === "live") {
+            if (session.presentationId && session.status === "presenting") {
               const slides = await Slide.find({
                 presentationId: session.presentationId,
               }).sort({ order: 1 });
@@ -625,7 +666,7 @@ function registerHostEvents(socket: Socket, io: Server): void {
       }
       await session.save();
 
-      if (session.presentationId && session.status === "live") {
+      if (session.presentationId && session.status === "presenting") {
         const slides = await Slide.find({
           presentationId: session.presentationId,
         }).sort({ order: 1 });
@@ -692,11 +733,19 @@ function registerHostEvents(socket: Socket, io: Server): void {
 function registerAudienceEvents(socket: Socket, io: Server): void {
   socket.on(
     SOCKET_EVENTS.JOIN_SESSION,
-    async ({ joinCode, displayName }: JoinSessionPayload) => {
+    async ({ joinCode, displayName, email }: JoinSessionPayload) => {
       try {
         const cleanCode = (joinCode || "").trim().toUpperCase();
         const cleanName = (displayName || "").trim();
         const cleanNameLower = cleanName.toLowerCase();
+        const cleanEmail = email?.trim();
+        if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+          socket.emit(
+            SOCKET_EVENTS.JOIN_ERROR,
+            "A valid email address is required to join this presentation.",
+          );
+          return;
+        }
 
         let session = await Session.findOne({
           joinCode: cleanCode,
@@ -719,7 +768,7 @@ function registerAudienceEvents(socket: Socket, io: Server): void {
             session = new Session({
               presentationId: presentation._id,
               joinCode: cleanCode,
-              status: presentation.status === "live" ? "live" : "waiting",
+              status: presentation.status === "live" ? "presenting" : "ready",
               startedAt: new Date(),
               currentSlideIndex: 0,
               requireApproval: true,
@@ -774,6 +823,7 @@ function registerAudienceEvents(socket: Socket, io: Server): void {
           existingParticipant.socketId = socket.id;
           existingParticipant.isOnline = true;
           existingParticipant.isApproved = isApproved;
+          if (cleanEmail) existingParticipant.email = cleanEmail;
         } else {
           session.participants.push({
             socketId: socket.id,
@@ -783,6 +833,7 @@ function registerAudienceEvents(socket: Socket, io: Server): void {
             isApproved,
             score: 0,
             responses: [],
+            email: cleanEmail,
           });
         }
 
@@ -809,6 +860,7 @@ function registerAudienceEvents(socket: Socket, io: Server): void {
               isApproved: p.isApproved !== false,
               joinedAt: p.joinedAt,
               score: p.score,
+              email: p.email,
             })),
           });
           return;
@@ -823,7 +875,7 @@ function registerAudienceEvents(socket: Socket, io: Server): void {
         });
 
         // If presentation is live, immediately send current slide data to participant
-        if (session.presentationId && session.status === "live") {
+        if (session.presentationId && session.status === "presenting") {
           const slides = await Slide.find({
             presentationId: session.presentationId,
           }).sort({ order: 1 });
@@ -837,7 +889,10 @@ function registerAudienceEvents(socket: Socket, io: Server): void {
               socket,
             );
           }
-        } else if (session.currentChallengeId && session.status === "live") {
+        } else if (
+          session.currentChallengeId &&
+          session.status === "presenting"
+        ) {
           const currentChallenge = await Challenge.findById(
             session.currentChallengeId,
           );
@@ -1064,7 +1119,7 @@ function registerReactionEvents(socket: Socket, io: Server): void {
         const cleanCode = (joinCode || "").trim().toUpperCase();
         const session = await Session.findOne({
           joinCode: cleanCode,
-          status: { $in: ["live", "waiting", "paused"] },
+          status: { $in: ["presenting", "ready", "paused", "complete"] },
         });
         if (!session) return;
 

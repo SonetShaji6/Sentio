@@ -8,6 +8,8 @@ import AILog from "../models/AILog";
 import AuditLog from "../models/AuditLog";
 import Organization from "../models/Organization";
 import OrganizationMember from "../models/OrganizationMember";
+import { createNotification } from "../services/notificationService";
+import { sendNotificationEmail } from "../services/email";
 
 const router = Router();
 
@@ -26,7 +28,9 @@ router.get("/dashboard", async (_req: any, res: any): Promise<void> => {
     const totalPresentations = await Presentation.countDocuments({
       isDeleted: false,
     });
-    const activeSessions = await Session.countDocuments({ status: "live" });
+    const activeSessions = await Session.countDocuments({
+      status: "presenting",
+    });
     const totalFiles = await FileResource.countDocuments({
       isLatestVersion: true,
     });
@@ -214,6 +218,69 @@ router.get("/presentations", async (req: any, res: any): Promise<void> => {
     res.status(500).json({ message: "Failed to list presentations" });
   }
 });
+
+// ── Admin Get Presentation Sessions & Participants ──
+router.get(
+  "/presentations/:id/participants",
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const presentation = await Presentation.findById(req.params.id).populate(
+        "owner",
+        "name email",
+      );
+      if (!presentation) {
+        res.status(404).json({ message: "Presentation not found" });
+        return;
+      }
+
+      const sessions = await Session.find({
+        presentationId: req.params.id,
+      }).sort({ createdAt: -1 });
+
+      const allParticipants: any[] = [];
+      const seen = new Set<string>();
+
+      for (const s of sessions) {
+        for (const p of s.participants) {
+          const key =
+            (p.email || p.displayName).toLowerCase() + "_" + s._id.toString();
+          if (!seen.has(key)) {
+            seen.add(key);
+            allParticipants.push({
+              sessionId: s._id,
+              joinCode: s.joinCode,
+              sessionStatus: s.status,
+              sessionStartedAt: s.startedAt,
+              socketId: p.socketId,
+              displayName: p.displayName,
+              email: p.email || "N/A",
+              joinedAt: p.joinedAt,
+              isOnline: p.isOnline,
+              isApproved: p.isApproved,
+              score: p.score,
+            });
+          }
+        }
+      }
+
+      res.json({
+        presentation: {
+          id: presentation._id,
+          title: presentation.title,
+          owner: presentation.owner,
+          status: presentation.status,
+          sessionCode: presentation.sessionCode,
+        },
+        sessionsCount: sessions.length,
+        totalParticipants: allParticipants.length,
+        participants: allParticipants,
+      });
+    } catch (error) {
+      console.error("Admin get presentation participants error:", error);
+      res.status(500).json({ message: "Failed to load participants" });
+    }
+  },
+);
 
 // ── Admin Delete Presentation ──
 router.delete(
@@ -499,5 +566,179 @@ router.get("/audit-logs", async (_req: any, res: any): Promise<void> => {
     res.status(500).json({ message: "Failed to retrieve audit logs" });
   }
 });
+
+// ── Admin Delete User (Hard Delete) ──
+router.delete("/users/:id", async (req: any, res: any): Promise<void> => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    // Safety check - don't let admin delete themselves
+    if (user.id === req.user.id) {
+      res.status(400).json({ message: "You cannot delete your own account" });
+      return;
+    }
+
+    await User.deleteOne({ _id: user._id });
+
+    await AuditLog.create({
+      user: req.user.id,
+      action: "USER_DELETED",
+      target: user.email,
+    });
+
+    res.json({ message: "User deleted successfully" });
+  } catch (error) {
+    console.error("Admin delete user error:", error);
+    res.status(500).json({ message: "Failed to delete user" });
+  }
+});
+
+// ── Admin Block/Unblock Presentation ──
+router.patch(
+  "/presentations/:id/block",
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const { isBlocked } = req.body;
+      const presentation = await Presentation.findById(req.params.id);
+      if (!presentation) {
+        res.status(404).json({ message: "Presentation not found" });
+        return;
+      }
+
+      presentation.isBlocked = Boolean(isBlocked);
+      await presentation.save();
+
+      await AuditLog.create({
+        user: req.user.id,
+        action: isBlocked ? "PRESENTATION_BLOCKED" : "PRESENTATION_UNBLOCKED",
+        target: presentation.title,
+      });
+
+      res.json({
+        message: `Presentation ${isBlocked ? "blocked" : "unblocked"} successfully`,
+        isBlocked: presentation.isBlocked,
+      });
+    } catch (error) {
+      console.error("Admin block presentation error:", error);
+      res.status(500).json({ message: "Failed to block presentation" });
+    }
+  },
+);
+
+// ── Admin Delete File ──
+router.delete("/files/:id", async (req: any, res: any): Promise<void> => {
+  try {
+    const file = await FileResource.findById(req.params.id);
+    if (!file) {
+      res.status(404).json({ message: "File not found" });
+      return;
+    }
+
+    await FileResource.deleteOne({ _id: file._id });
+
+    await AuditLog.create({
+      user: req.user.id,
+      action: "FILE_DELETED",
+      target: file.originalName,
+    });
+
+    res.json({ message: "File deleted successfully" });
+  } catch (error) {
+    console.error("Admin delete file error:", error);
+    res.status(500).json({ message: "Failed to delete file" });
+  }
+});
+
+// ── Admin Send System Notification ──
+router.post(
+  "/notifications/send",
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const { title, message, targetRole, targetUsers, deliveryMethod } =
+        req.body;
+      if (!title || !message) {
+        res.status(400).json({ message: "Title and message are required" });
+        return;
+      }
+
+      // deliveryMethod can be 'portal', 'email', or 'both'
+      // targetUsers can be 'ALL' or an array of user IDs
+
+      let usersToNotify: any[] = [];
+
+      if (targetUsers === "ALL") {
+        const filter: any = { isBlocked: false };
+        if (targetRole && targetRole !== "ALL") filter.role = targetRole;
+        usersToNotify = await User.find(filter).select("_id email preferences");
+      } else if (Array.isArray(targetUsers) && targetUsers.length > 0) {
+        usersToNotify = await User.find({
+          _id: { $in: targetUsers },
+          isBlocked: false,
+        }).select("_id email preferences");
+      }
+
+      // Process notifications
+      // We grab `io` from app if possible, or pass null
+      const io = req.app.get("io");
+
+      const portalPromises = [];
+      const emailPromises = [];
+
+      for (const user of usersToNotify) {
+        if (deliveryMethod === "portal" || deliveryMethod === "both") {
+          portalPromises.push(
+            createNotification(
+              user._id.toString(),
+              {
+                type: "system_announcement",
+                title,
+                message,
+              },
+              io,
+            ),
+          );
+        }
+
+        if (deliveryMethod === "email" || deliveryMethod === "both") {
+          // Check if user has opted out of system announcement emails, but as admin we might bypass it.
+          // For now, let's respect preferences if they exist, or just send.
+          if (user.preferences?.notifications?.email !== false) {
+            emailPromises.push(
+              sendNotificationEmail(user.email, title, message),
+            );
+          }
+        }
+      }
+
+      await Promise.allSettled([...portalPromises, ...emailPromises]);
+
+      await AuditLog.create({
+        user: req.user.id,
+        action: "SYSTEM_NOTIFICATION_SENT",
+        target:
+          targetUsers === "ALL"
+            ? targetRole || "ALL_USERS"
+            : `SPECIFIC_USERS (${usersToNotify.length})`,
+        details: {
+          title,
+          message,
+          deliveryMethod,
+          recipientsCount: usersToNotify.length,
+        },
+      });
+
+      res.json({
+        message: `Notification sent successfully to ${usersToNotify.length} users`,
+      });
+    } catch (error) {
+      console.error("Admin send notification error:", error);
+      res.status(500).json({ message: "Failed to send notification" });
+    }
+  },
+);
 
 export default router;

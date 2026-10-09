@@ -29,6 +29,7 @@ export interface IPresentation extends Document {
   shareId: string;
   sessionCode?: string;
   isDeleted: boolean;
+  isBlocked?: boolean;
   deletedAt?: Date;
   versionHistory: IPresentationVersion[];
   createdAt: Date;
@@ -81,6 +82,7 @@ const PresentationSchema = new Schema<IPresentation>(
     shareId: { type: String, required: true, unique: true },
     sessionCode: { type: String, sparse: true, unique: true },
     isDeleted: { type: Boolean, default: false },
+    isBlocked: { type: Boolean, default: false },
     deletedAt: { type: Date },
     versionHistory: [PresentationVersionSchema],
   },

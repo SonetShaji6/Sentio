@@ -1,7 +1,7 @@
 import PDFDocument from "pdfkit";
 import * as analyticsService from "./analyticsService";
 import * as recommendationService from "./recommendationService";
-import { uploadFileToAzure } from "./azure";
+import { uploadFileToS3 } from "./s3";
 import Report, { IReport } from "../models/Report";
 import FileResource from "../models/FileResource";
 import Presentation from "../models/Presentation";
@@ -586,12 +586,7 @@ export async function processReportJob(reportId: string) {
     }
 
     const fileName = `report-${report.sessionId}-${Date.now()}.${extension}`;
-    const fileUrl = await uploadFileToAzure(
-      "reports",
-      fileName,
-      buffer,
-      mimeType,
-    );
+    const fileUrl = await uploadFileToS3("reports", fileName, buffer, mimeType);
 
     report.fileUrl = fileUrl;
     report.fileSize = buffer.length;
@@ -673,7 +668,7 @@ export async function generateAndSaveSessionReport(sessionId: string) {
       const buffer = await buildPDFReport(data);
       const fileName = `session-report-${session.joinCode}-${Date.now()}.pdf`;
 
-      const fileUrl = await uploadFileToAzure(
+      const fileUrl = await uploadFileToS3(
         "reports",
         fileName,
         buffer,

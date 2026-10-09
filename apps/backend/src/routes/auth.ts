@@ -7,7 +7,7 @@ import User from "../models/User";
 import { validate } from "../middleware/validate";
 import { requireAuth } from "../middleware/auth";
 import multer from "multer";
-import { uploadAvatarToAzure } from "../services/azure";
+import { uploadAvatarToS3 } from "../services/s3";
 import {
   authRateLimiter,
   passwordResetRateLimiter,
@@ -237,11 +237,24 @@ router.patch(
       .withMessage("New password must contain an uppercase letter")
       .matches(/[0-9]/)
       .withMessage("New password must contain a number"),
+    body("bio").optional().trim().isLength({ max: 500 }),
+    body("jobTitle").optional().trim().isLength({ max: 100 }),
+    body("organization").optional().trim().isLength({ max: 100 }),
+    body("preferences").optional().isObject(),
   ],
   validate,
   async (req: any, res: any) => {
     try {
-      const { name, avatar, currentPassword, newPassword } = req.body;
+      const {
+        name,
+        avatar,
+        bio,
+        jobTitle,
+        organization,
+        preferences,
+        currentPassword,
+        newPassword,
+      } = req.body;
       const user = await User.findById(req.user.sub);
 
       if (!user) {
@@ -266,8 +279,21 @@ router.patch(
         user.passwordHash = await bcrypt.hash(newPassword, 12);
       }
 
-      if (name) user.name = name;
-      if (avatar) user.avatar = avatar;
+      if (name !== undefined) user.name = name;
+      if (avatar !== undefined) user.avatar = avatar;
+      if (bio !== undefined) user.bio = bio;
+      if (jobTitle !== undefined) user.jobTitle = jobTitle;
+      if (organization !== undefined) user.organization = organization;
+      if (preferences !== undefined) {
+        user.preferences = {
+          ...user.preferences,
+          ...preferences,
+          notifications: {
+            ...user.preferences?.notifications,
+            ...preferences?.notifications,
+          },
+        };
+      }
 
       await user.save();
 
@@ -277,6 +303,9 @@ router.patch(
           name: user.name,
           email: user.email,
           avatar: user.avatar,
+          bio: user.bio,
+          jobTitle: user.jobTitle,
+          organization: user.organization,
           role: user.role,
           isEmailVerified: user.isEmailVerified,
           preferences: user.preferences,
@@ -307,7 +336,7 @@ router.post(
       }
 
       // Upload to Azure Blob Storage
-      const avatarUrl = await uploadAvatarToAzure(
+      const avatarUrl = await uploadAvatarToS3(
         user.id,
         req.file.buffer,
         req.file.mimetype,

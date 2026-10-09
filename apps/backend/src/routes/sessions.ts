@@ -6,6 +6,7 @@ import Slide from "../models/Slide";
 import QnAQuestion from "../models/QnAQuestion";
 import * as interactionService from "../services/interactionService";
 import * as reportService from "../services/reportService";
+import { generateUnique6DigitCode } from "../utils/codeGenerator";
 
 const router = Router();
 
@@ -36,7 +37,7 @@ router.get("/check/:joinCode", async (req: any, res: any): Promise<void> => {
         });
         res.json({
           exists: true,
-          status: presentation.status === "live" ? "live" : "waiting",
+          status: presentation.status === "live" ? "presenting" : "ready",
           title: presentation.title,
           slideCount,
           joinCode: cleanCode,
@@ -130,6 +131,78 @@ router.get(
   },
 );
 
+// ── Initialize or Start Presentation Session with Unique 6-Digit Code ──
+router.post(
+  "/presentation/:presentationId/init",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const { presentationId } = req.params;
+      const { forceNew } = req.body || {};
+
+      const presentation = await Presentation.findById(presentationId);
+      if (!presentation) {
+        res.status(404).json({ message: "Presentation not found" });
+        return;
+      }
+
+      if (presentation.owner.toString() !== req.user.id) {
+        res.status(403).json({ message: "Access denied" });
+        return;
+      }
+
+      // Check for an existing active session
+      let session = null;
+      if (!forceNew) {
+        session = await Session.findOne({
+          presentationId,
+          status: { $in: ["presenting", "paused", "ready"] },
+        }).sort({ createdAt: -1 });
+      }
+
+      // If forceNew is requested or previous session ended, end any remaining active sessions
+      if (forceNew) {
+        await Session.updateMany(
+          { presentationId, status: { $ne: "ended" } },
+          { $set: { status: "ended", endedAt: new Date() } },
+        );
+      }
+
+      let joinCode = session?.joinCode;
+
+      // Ensure joinCode is a valid 6-digit numeric string
+      if (!session || !joinCode || !/^\d{6}$/.test(joinCode)) {
+        joinCode = await generateUnique6DigitCode();
+
+        session = new Session({
+          presentationId: presentation._id,
+          joinCode,
+          status: "ready",
+          startedAt: new Date(),
+          currentSlideIndex: 0,
+          requireApproval: false,
+          participants: [],
+        });
+        await session.save();
+
+        presentation.sessionCode = joinCode;
+        presentation.status = "live";
+        await presentation.save();
+      }
+
+      res.json({
+        session,
+        joinCode,
+      });
+    } catch (error) {
+      console.error("Init session error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to initialize presentation session" });
+    }
+  },
+);
+
 // ── Get Slide Results ──
 router.get(
   "/:id/results/:slideId",
@@ -217,6 +290,7 @@ router.get(
           isApproved: p.isApproved !== false,
           joinedAt: p.joinedAt,
           score: p.score,
+          email: p.email,
         })),
       });
     } catch (error) {
@@ -283,6 +357,12 @@ router.post(
       session.status = "ended";
       session.endedAt = new Date();
       await session.save();
+
+      if (session.presentationId) {
+        await Presentation.findByIdAndUpdate(session.presentationId, {
+          status: "completed",
+        });
+      }
 
       // Trigger automatic report generation
       const reportResult = await reportService.generateAndSaveSessionReport(

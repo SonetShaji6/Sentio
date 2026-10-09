@@ -28,7 +28,7 @@ async function validateSessionAndSlide(
 }> {
   const session = await Session.findOne({
     joinCode,
-    status: { $in: ["live", "paused"] },
+    status: { $in: ["presenting", "paused", "complete", "ready"] },
   });
 
   if (!session) {

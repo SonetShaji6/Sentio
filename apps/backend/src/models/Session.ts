@@ -8,12 +8,13 @@ export interface IParticipant {
   isApproved?: boolean; // For presenter approval
   score: number; // For leaderboard
   responses: any[]; // Legacy — keep for backward compat
+  email?: string;
 }
 
 export interface ISession extends Document {
   presentationId?: mongoose.Types.ObjectId; // For presentation sessions
   experienceId?: mongoose.Types.ObjectId; // For experience sessions
-  status: "waiting" | "live" | "paused" | "ended";
+  status: "ready" | "presenting" | "paused" | "ended" | "complete";
   currentSlideIndex?: number; // Slide index
   currentConceptId?: string; // Replaces currentSlideIndex
   currentChallengeId?: mongoose.Types.ObjectId; // The active challenge
@@ -40,6 +41,7 @@ const ParticipantSchema = new Schema<IParticipant>(
     isApproved: { type: Boolean, default: false },
     score: { type: Number, default: 0 },
     responses: { type: Schema.Types.Mixed, default: [] },
+    email: { type: String },
   },
   { _id: false },
 );
@@ -58,8 +60,8 @@ const SessionSchema = new Schema<ISession>(
     },
     status: {
       type: String,
-      enum: ["waiting", "live", "paused", "ended"],
-      default: "waiting",
+      enum: ["ready", "presenting", "paused", "ended", "complete"],
+      default: "ready",
     },
     currentSlideIndex: { type: Number, default: 0 },
     currentConceptId: { type: String },

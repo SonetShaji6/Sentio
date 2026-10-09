@@ -1,5 +1,5 @@
 import FileResource, { IFileResource } from "../models/FileResource";
-import { uploadFileToAzure, deleteFileFromAzure } from "./azure";
+import { uploadFileToS3, deleteFileFromS3 } from "./s3";
 import { extractTextFromDocument } from "./documentProcessor";
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
@@ -78,7 +78,7 @@ export async function uploadAndProcessFile(
   const storagePath = `files/${storedName}`;
 
   // Upload binary to Azure Blob Storage
-  const fileUrl = await uploadFileToAzure(
+  const fileUrl = await uploadFileToS3(
     "files",
     storedName,
     file.buffer,
@@ -151,7 +151,7 @@ export async function createFileVersion(
 
   const cleanOriginalName = sanitizeFileName(file.originalname);
   const storedName = `${ownerId}-${Date.now()}-v${parentFile.version + 1}-${cleanOriginalName}`;
-  const fileUrl = await uploadFileToAzure(
+  const fileUrl = await uploadFileToS3(
     "files",
     storedName,
     file.buffer,
@@ -221,7 +221,7 @@ export async function deleteFileResource(fileId: string, ownerId: string) {
 
   // Delete from Azure
   if (fileDoc.fileUrl) {
-    await deleteFileFromAzure("files", fileDoc.fileUrl);
+    await deleteFileFromS3("files", fileDoc.fileUrl);
   }
 
   await FileResource.deleteOne({ _id: fileDoc._id });

@@ -5,8 +5,11 @@ import Session from "../models/Session";
 import Presentation from "../models/Presentation";
 import * as reportService from "../services/reportService";
 import { processReportJob } from "../services/reportService";
-import { deleteFileFromAzure } from "../services/azure";
-import { sendReportEmail } from "../services/email";
+import { deleteFileFromS3 } from "../services/s3";
+import {
+  sendReportEmail,
+  sendPresentationReportEmail,
+} from "../services/email";
 
 const router = Router();
 
@@ -210,7 +213,7 @@ router.delete(
       }
 
       if (report.fileUrl) {
-        await deleteFileFromAzure("reports", report.fileUrl);
+        await deleteFileFromS3("reports", report.fileUrl);
       }
 
       await Report.deleteOne({ _id: report._id });
@@ -249,6 +252,160 @@ router.get(
     } catch (error) {
       console.error("Export report data error:", error);
       res.status(500).json({ message: "Failed to export report data" });
+    }
+  },
+);
+
+// ── Get Participants Eligible for a Report ──
+router.get(
+  "/:id/participants",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const report = await Report.findById(req.params.id);
+      if (!report) {
+        res.status(404).json({ message: "Report not found" });
+        return;
+      }
+
+      const presentation = await Presentation.findById(report.presentationId);
+      if (!presentation || presentation.owner?.toString() !== req.user.id) {
+        res.status(403).json({ message: "Access denied" });
+        return;
+      }
+
+      let sessions = [];
+      if (report.sessionId) {
+        const s = await Session.findById(report.sessionId);
+        if (s) sessions.push(s);
+      }
+      if (sessions.length === 0) {
+        sessions = await Session.find({
+          presentationId: report.presentationId,
+        });
+      }
+
+      const participants: any[] = [];
+      const seen = new Set<string>();
+
+      for (const s of sessions) {
+        for (const p of s.participants) {
+          const email = p.email?.trim();
+          if (email && !seen.has(email.toLowerCase())) {
+            seen.add(email.toLowerCase());
+            participants.push({
+              displayName: p.displayName,
+              email: p.email,
+              joinedAt: p.joinedAt,
+              score: p.score,
+              sessionCode: s.joinCode,
+            });
+          }
+        }
+      }
+
+      res.json({
+        report: {
+          id: report._id,
+          title: report.title,
+          fileUrl: report.fileUrl,
+          fileFormat: report.fileFormat,
+        },
+        presentationTitle: presentation.title,
+        participants,
+      });
+    } catch (error) {
+      console.error("Get report participants error:", error);
+      res.status(500).json({ message: "Failed to load participants" });
+    }
+  },
+);
+
+// ── Dispatch Report Directly to Participants ──
+router.post(
+  "/:id/send-participants",
+  requireAuth,
+  async (req: any, res: any): Promise<void> => {
+    try {
+      const report = await Report.findById(req.params.id);
+      if (!report) {
+        res.status(404).json({ message: "Report not found" });
+        return;
+      }
+
+      const presentation = await Presentation.findById(report.presentationId);
+      if (!presentation || presentation.owner?.toString() !== req.user.id) {
+        res.status(403).json({ message: "Access denied" });
+        return;
+      }
+
+      if (!report.fileUrl) {
+        res.status(400).json({ message: "Report file URL is not ready yet." });
+        return;
+      }
+
+      const { participantEmails, customMessage } = req.body || {};
+
+      let sessions = [];
+      if (report.sessionId) {
+        const s = await Session.findById(report.sessionId);
+        if (s) sessions.push(s);
+      }
+      if (sessions.length === 0) {
+        sessions = await Session.find({
+          presentationId: report.presentationId,
+        });
+      }
+
+      const targets: { email: string; name: string }[] = [];
+      const seen = new Set<string>();
+
+      for (const s of sessions) {
+        for (const p of s.participants) {
+          const email = p.email?.trim();
+          if (email && !seen.has(email.toLowerCase())) {
+            if (
+              !participantEmails ||
+              participantEmails.length === 0 ||
+              participantEmails.includes(email)
+            ) {
+              seen.add(email.toLowerCase());
+              targets.push({ email, name: p.displayName });
+            }
+          }
+        }
+      }
+
+      if (targets.length === 0) {
+        res.status(400).json({
+          message: "No participants with valid email addresses found to send.",
+        });
+        return;
+      }
+
+      await Promise.all(
+        targets.map((t) =>
+          sendPresentationReportEmail(
+            t.email,
+            t.name,
+            presentation.title,
+            report.title,
+            report.fileUrl!,
+            customMessage,
+          ),
+        ),
+      );
+
+      res.json({
+        message: `Report successfully dispatched to ${targets.length} participant(s).`,
+        recipientsCount: targets.length,
+        recipients: targets.map((t) => t.email),
+      });
+    } catch (error) {
+      console.error("Send report to participants error:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to send report to participants" });
     }
   },
 );

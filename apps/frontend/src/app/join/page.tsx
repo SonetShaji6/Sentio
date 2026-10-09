@@ -22,6 +22,7 @@ function JoinForm() {
 
   const [joinCode, setJoinCode] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [sessionPreview, setSessionPreview] = useState<{
@@ -97,7 +98,21 @@ function JoinForm() {
     }
 
     const name = displayName.trim() || "Participant";
-    router.push(`/play/${cleanCode}?name=${encodeURIComponent(name)}`);
+    const emailStr = email.trim();
+
+    if (!emailStr) {
+      setError("Please enter your email address to join.");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailStr)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    const url = `/play/${cleanCode}?name=${encodeURIComponent(name)}&email=${encodeURIComponent(emailStr)}`;
+    router.push(url);
   };
 
   return (
@@ -189,6 +204,23 @@ function JoinForm() {
               className="w-full px-5 py-3.5 bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 focus:border-zinc-900 dark:focus:border-white rounded-2xl outline-none transition-all text-base font-medium text-zinc-950 dark:text-white text-center placeholder:text-zinc-400"
               placeholder="How should we call you?"
               maxLength={25}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 ml-1">
+              Email Address <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError("");
+              }}
+              className="w-full px-5 py-3.5 bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 focus:border-zinc-900 dark:focus:border-white rounded-2xl outline-none transition-all text-base font-medium text-zinc-950 dark:text-white text-center placeholder:text-zinc-400"
+              placeholder="you@example.com"
             />
           </div>
 

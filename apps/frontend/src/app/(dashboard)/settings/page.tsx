@@ -15,6 +15,9 @@ export default function SettingsPage() {
   // Profile state
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState("");
+  const [bio, setBio] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [organization, setOrganization] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Password state
@@ -28,6 +31,9 @@ export default function SettingsPage() {
   );
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [pushNotifs, setPushNotifs] = useState(true);
+  const [aiStatusNotifs, setAiStatusNotifs] = useState(true);
+  const [reportReadyNotifs, setReportReadyNotifs] = useState(true);
+  const [sysAnnouncementsNotifs, setSysAnnouncementsNotifs] = useState(true);
   const { setTheme } = useTheme();
 
   // Status state
@@ -42,10 +48,20 @@ export default function SettingsPage() {
         setUser(u);
         setName(u.name);
         setAvatar(u.avatar || "");
+        setBio(u.bio || "");
+        setJobTitle(u.jobTitle || "");
+        setOrganization(u.organization || "");
         if (u.preferences) {
           setThemePref(u.preferences.theme);
-          setEmailNotifs(u.preferences.notifications.email);
-          setPushNotifs(u.preferences.notifications.push);
+          setEmailNotifs(u.preferences.notifications?.email ?? true);
+          setPushNotifs(u.preferences.notifications?.push ?? true);
+          setAiStatusNotifs(u.preferences.notifications?.aiStatus ?? true);
+          setReportReadyNotifs(
+            u.preferences.notifications?.reportReady ?? true,
+          );
+          setSysAnnouncementsNotifs(
+            u.preferences.notifications?.systemAnnouncements ?? true,
+          );
         }
       }
       setLoading(false);
@@ -101,11 +117,17 @@ export default function SettingsPage() {
     const payload: any = {
       name,
       avatar,
+      bio,
+      jobTitle,
+      organization,
       preferences: {
         theme: themePref,
         notifications: {
           email: emailNotifs,
           push: pushNotifs,
+          aiStatus: aiStatusNotifs,
+          reportReady: reportReadyNotifs,
+          systemAnnouncements: sysAnnouncementsNotifs,
         },
       },
     };
@@ -257,6 +279,62 @@ export default function SettingsPage() {
                 </p>
               </div>
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <label
+                  htmlFor="jobTitle"
+                  className="label block mb-2 font-bold text-xs text-zinc-700 dark:text-zinc-300"
+                >
+                  Job Title / Role
+                </label>
+                <input
+                  id="jobTitle"
+                  type="text"
+                  className="input-field w-full rounded-xl text-sm"
+                  placeholder="e.g. Senior Product Manager"
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="organization"
+                  className="label block mb-2 font-bold text-xs text-zinc-700 dark:text-zinc-300"
+                >
+                  Organization / Company
+                </label>
+                <input
+                  id="organization"
+                  type="text"
+                  className="input-field w-full rounded-xl text-sm"
+                  placeholder="e.g. Acme Corp"
+                  value={organization}
+                  onChange={(e) => setOrganization(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="bio"
+                className="label block mb-2 font-bold text-xs text-zinc-700 dark:text-zinc-300"
+              >
+                Professional Bio
+              </label>
+              <textarea
+                id="bio"
+                className="input-field w-full rounded-xl text-sm min-h-[100px] resize-y"
+                placeholder="Write a short bio about yourself..."
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                maxLength={500}
+              />
+              <p className="text-xs text-zinc-500 mt-2 text-right">
+                {bio.length} / 500 characters
+              </p>
+            </div>
           </div>
         </div>
 
@@ -306,6 +384,41 @@ export default function SettingsPage() {
                   />
                   <span className="text-sm text-zinc-700 dark:text-zinc-300">
                     Push Notifications
+                  </span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={aiStatusNotifs}
+                    onChange={(e) => setAiStatusNotifs(e.target.checked)}
+                    className="w-4 h-4 rounded text-zinc-900 focus:ring-zinc-900 dark:text-white"
+                  />
+                  <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                    AI Insights & Coaching Alerts
+                  </span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={reportReadyNotifs}
+                    onChange={(e) => setReportReadyNotifs(e.target.checked)}
+                    className="w-4 h-4 rounded text-zinc-900 focus:ring-zinc-900 dark:text-white"
+                  />
+                  <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                    Post-Session Report Ready Alerts
+                  </span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sysAnnouncementsNotifs}
+                    onChange={(e) =>
+                      setSysAnnouncementsNotifs(e.target.checked)
+                    }
+                    className="w-4 h-4 rounded text-zinc-900 focus:ring-zinc-900 dark:text-white"
+                  />
+                  <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                    System Announcements & Updates
                   </span>
                 </label>
               </div>
